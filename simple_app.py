@@ -254,7 +254,7 @@ dashboard = SimpleSalesDashboard()
 @app.route('/')
 def index():
     """Main dashboard page"""
-    return render_template('simple_dashboard.html')
+    return render_template('dashboard_pro.html')
 
 @app.route('/api/metrics')
 def get_metrics():

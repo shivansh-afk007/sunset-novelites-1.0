@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sunset Novelties - Professional Dashboard</title>
+    <!-- Tailwind CSS CDN for prototyping -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#4f46e5',
+              secondary: '#0ea5e9',
+              accent: '#10b981',
+              dark: '#1e293b',
+            },
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+            },
+          }
+        }
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Plotly.js -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+      body { font-family: 'Inter', sans-serif; }
+      .gradient-primary { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%); }
+      .gradient-secondary { background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 50%, #6366f1 100%); }
+      .gradient-accent { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+      .gradient-dark { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); }
+      .text-gradient-primary { background: linear-gradient(90deg, #4f46e5, #7c3aed, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+      .card-premium { @apply bg-white rounded-3xl border border-slate-200/50 shadow-xl hover:shadow-2xl transition-all duration-500 backdrop-blur-sm; }
+      .tab-content { display: none; }
+      .tab-content.active { display: block; }
+      .nav-tab { @apply flex items-center px-5 py-2 text-sm font-semibold rounded-lg whitespace-nowrap transition-all duration-300 cursor-pointer; }
+      .nav-tab.active { @apply gradient-primary text-white shadow-lg shadow-indigo-500/30; }
+      .nav-tab:not(.active) { @apply text-slate-600 hover:bg-slate-200/60; }
+      .metric-card { @apply bg-white/90 backdrop-blur-md rounded-3xl border border-slate-200/50 shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:scale-105; }
+      .table-container { @apply bg-white/80 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200/50; }
+      .chart-container { @apply bg-white/60 backdrop-blur-sm rounded-2xl shadow-inner border border-slate-200/30; }
+      .fab-button { @apply fixed bottom-8 right-8 z-50 bg-gradient-to-r from-primary to-secondary text-white rounded-full shadow-2xl w-20 h-20 flex items-center justify-center text-3xl hover:scale-110 hover:shadow-3xl transition-all duration-500 transform; }
+      .insight-card { @apply bg-gradient-to-r from-slate-50 to-white rounded-2xl shadow-lg border border-slate-200/50 p-4 backdrop-blur-sm; }
+      .loading-spinner { @apply animate-spin rounded-full h-10 w-10 border-4 border-indigo-200 border-t-indigo-600 mx-auto; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 via-white to-slate-100 min-h-screen">
+    <!-- Header -->
+    <header class="bg-white/80 border-b border-slate-200 shadow-lg sticky top-0 z-30">
+        <div class="max-w-7xl mx-auto px-4 py-6 flex items-center justify-between">
+            <div class="flex items-center space-x-4">
+                <div class="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center shadow-lg">
+                    <span class="text-white text-2xl font-bold">🌅</span>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-bold text-gradient-primary">Sunset Novelties</h1>
+                    <p class="text-slate-600 text-sm font-medium">Advanced Sales Intelligence Platform</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button class="p-3 hover:bg-slate-100 rounded-xl transition-all duration-200 relative">
+                    <i class="fas fa-bell w-5 h-5 text-slate-600"></i>
+                    <div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></div>
+                </button>
+                <button class="p-3 hover:bg-slate-100 rounded-xl transition-all duration-200">
+                    <i class="fas fa-cog w-5 h-5 text-slate-600"></i>
+                </button>
+                <button class="p-3 hover:bg-slate-100 rounded-xl transition-all duration-200">
+                    <i class="fas fa-user w-5 h-5 text-slate-600"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Navigation Tabs -->
+        <nav class="max-w-7xl mx-auto px-4 pb-4 flex space-x-4 overflow-x-auto">
+            <button class="nav-tab active" data-tab="overview">
+                <i class="fas fa-chart-pie mr-2"></i>Overview
+            </button>
+            <button class="nav-tab" data-tab="products">
+                <i class="fas fa-box mr-2"></i>Product Analysis
+            </button>
+            <button class="nav-tab" data-tab="categories">
+                <i class="fas fa-tags mr-2"></i>Category Analysis
+            </button>
+            <button class="nav-tab" data-tab="charts">
+                <i class="fas fa-chart-line mr-2"></i>Charts & Analytics
+            </button>
+            <button class="nav-tab" data-tab="insights">
+                <i class="fas fa-lightbulb mr-2"></i>Insights & Recommendations
+            </button>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Overview Tab -->
+        <div id="overview" class="tab-content active">
+            <!-- Key Metrics -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8" id="metrics-grid">
+                <div class="metric-card p-6">
+                    <div class="flex items-center mb-2">
+                        <div class="w-12 h-12 gradient-accent rounded-2xl flex items-center justify-center mr-3 shadow-lg">
+                            <span class="text-white text-xl font-bold">$</span>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-slate-500 uppercase tracking-wide">Total Revenue</h3>
+                            <span class="text-2xl font-bold text-slate-800" id="total-revenue">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="text-emerald-600 text-xs font-semibold flex items-center">
+                        <i class="fas fa-arrow-up mr-1"></i>+15% vs last period
+                    </div>
+                </div>
+                <div class="metric-card p-6">
+                    <div class="flex items-center mb-2">
+                        <div class="w-12 h-12 gradient-secondary rounded-2xl flex items-center justify-center mr-3 shadow-lg">
+                            <span class="text-white text-xl font-bold">📦</span>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-slate-500 uppercase tracking-wide">Units Sold</h3>
+                            <span class="text-2xl font-bold text-slate-800" id="units-sold">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="text-emerald-600 text-xs font-semibold flex items-center">
+                        <i class="fas fa-arrow-up mr-1"></i>+8% vs last period
+                    </div>
+                </div>
+                <div class="metric-card p-6">
+                    <div class="flex items-center mb-2">
+                        <div class="w-12 h-12 gradient-dark rounded-2xl flex items-center justify-center mr-3 shadow-lg">
+                            <span class="text-white text-xl font-bold">📊</span>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-slate-500 uppercase tracking-wide">Stock Remaining</h3>
+                            <span class="text-2xl font-bold text-slate-800" id="stock-remaining">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="text-slate-600 text-xs font-semibold flex items-center">
+                        <i class="fas fa-boxes mr-1"></i>Total inventory
+                    </div>
+                </div>
+                <div class="metric-card p-6">
+                    <div class="flex items-center mb-2">
+                        <div class="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mr-3 shadow-lg">
+                            <span class="text-white text-xl font-bold">%</span>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-slate-500 uppercase tracking-wide">Avg Profit Margin</h3>
+                            <span class="text-2xl font-bold text-slate-800" id="avg-margin">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="text-emerald-600 text-xs font-semibold flex items-center">
+                        <i class="fas fa-arrow-up mr-1"></i>+2% vs last period
+                    </div>
+                </div>
+                <div class="metric-card p-6">
+                    <div class="flex items-center mb-2">
+                        <div class="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mr-3 shadow-lg">
+                            <span class="text-white text-xl font-bold">🏆</span>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-slate-500 uppercase tracking-wide">Top Product</h3>
+                            <span class="text-2xl font-bold text-slate-800" id="top-product-revenue">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="text-slate-600 text-xs font-semibold" id="top-product-name">Loading...</div>
+                </div>
+            </div>
+
+            <!-- Insights Section -->
+            <div class="card-premium p-6 mb-8">
+                <h3 class="text-xl font-semibold mb-4 text-slate-800"><i class="fas fa-info-circle mr-2"></i>Key Insights</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <p class="text-slate-600 mb-2"><strong>Revenue Performance:</strong> Your business shows strong revenue generation with excellent profit margins.</p>
+                        <p class="text-slate-600 mb-2"><strong>Product Diversity:</strong> Wide range of products across multiple categories driving sales.</p>
+                    </div>
+                    <div>
+                        <p class="text-slate-600 mb-2"><strong>Profitability:</strong> High average profit margin indicates strong pricing strategy.</p>
+                        <p class="text-slate-600 mb-2"><strong>Growth Potential:</strong> Opportunities exist in expanding successful product lines.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alert Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card-premium p-6 border-l-4 border-emerald-500">
+                    <h4 class="text-lg font-semibold mb-2 text-emerald-700"><i class="fas fa-arrow-up mr-2"></i>Strong Performance</h4>
+                    <p class="text-slate-600">Your business is performing well with high profit margins and strong revenue growth.</p>
+                </div>
+                <div class="card-premium p-6 border-l-4 border-amber-500">
+                    <h4 class="text-lg font-semibold mb-2 text-amber-700"><i class="fas fa-exclamation-triangle mr-2"></i>Areas for Improvement</h4>
+                    <p class="text-slate-600">Some products have negative margins and need pricing strategy review.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Product Analysis Tab -->
+        <div id="products" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="table-container p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-trophy mr-2 text-amber-500"></i>Top 20 Products by Revenue
+                    </h3>
+                    <div class="overflow-x-auto rounded-xl shadow-md">
+                        <table class="w-full text-sm bg-white/70 rounded-xl">
+                            <thead class="bg-gradient-to-r from-primary to-secondary text-white sticky top-0 z-10">
+                                <tr>
+                                    <th class="text-left p-4 font-semibold">Product</th>
+                                    <th class="text-left p-4 font-semibold">Category</th>
+                                    <th class="text-left p-4 font-semibold">Units Sold</th>
+                                    <th class="text-left p-4 font-semibold">Stock</th>
+                                    <th class="text-left p-4 font-semibold">Revenue</th>
+                                    <th class="text-left p-4 font-semibold">Margin</th>
+                                    <th class="text-left p-4 font-semibold">Profit</th>
+                                </tr>
+                            </thead>
+                            <tbody id="top-products-table">
+                                <tr>
+                                    <td colspan="7" class="text-center p-8">
+                                        <div class="loading-spinner"></div>
+                                        <p class="mt-4 text-slate-500 font-medium">Loading products...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="table-container p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-2 text-red-500"></i>Products with Negative Margins
+                    </h3>
+                    <div class="overflow-x-auto rounded-xl shadow-md">
+                        <table class="w-full text-sm bg-white/70 rounded-xl">
+                            <thead class="bg-gradient-to-r from-primary to-secondary text-white sticky top-0 z-10">
+                                <tr>
+                                    <th class="text-left p-4 font-semibold">Product</th>
+                                    <th class="text-left p-4 font-semibold">Category</th>
+                                    <th class="text-left p-4 font-semibold">Units Sold</th>
+                                    <th class="text-left p-4 font-semibold">Stock</th>
+                                    <th class="text-left p-4 font-semibold">Revenue</th>
+                                    <th class="text-left p-4 font-semibold">Margin</th>
+                                    <th class="text-left p-4 font-semibold">Cost</th>
+                                </tr>
+                            </thead>
+                            <tbody id="negative-margin-table">
+                                <tr>
+                                    <td colspan="7" class="text-center p-8">
+                                        <div class="loading-spinner"></div>
+                                        <p class="mt-4 text-slate-500 font-medium">Loading products...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Analysis Tab -->
+        <div id="categories" class="tab-content">
+            <div class="table-container p-6">
+                <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                    <i class="fas fa-table mr-2 text-blue-500"></i>Category Summary
+                </h3>
+                <div class="overflow-x-auto rounded-xl shadow-md">
+                    <table class="w-full text-sm bg-white/70 rounded-xl">
+                        <thead class="bg-gradient-to-r from-primary to-secondary text-white sticky top-0 z-10">
+                            <tr>
+                                <th class="text-left p-4 font-semibold">Category</th>
+                                <th class="text-left p-4 font-semibold">Total Revenue</th>
+                                <th class="text-left p-4 font-semibold">Product Count</th>
+                                <th class="text-left p-4 font-semibold">Avg Margin</th>
+                                <th class="text-left p-4 font-semibold">Units Sold</th>
+                                <th class="text-left p-4 font-semibold">Stock Remaining</th>
+                                <th class="text-left p-4 font-semibold">Total Cost</th>
+                                <th class="text-left p-4 font-semibold">Total Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="category-summary-table">
+                            <tr>
+                                <td colspan="8" class="text-center p-8">
+                                    <div class="loading-spinner"></div>
+                                    <p class="mt-4 text-slate-500 font-medium">Loading categories...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts & Analytics Tab -->
+        <div id="charts" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="card-premium p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-chart-pie mr-2 text-purple-500"></i>Revenue Distribution by Category
+                    </h3>
+                    <div id="revenue-by-category-chart" class="chart-container h-80 flex items-center justify-center">
+                        <div class="flex flex-col items-center justify-center h-full">
+                            <div class="loading-spinner"></div>
+                            <p class="mt-4 text-slate-500 font-medium">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-premium p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-chart-bar mr-2 text-indigo-500"></i>Margin Distribution
+                    </h3>
+                    <div id="margin-distribution-chart" class="chart-container h-80 flex items-center justify-center">
+                        <div class="flex flex-col items-center justify-center h-full">
+                            <div class="loading-spinner"></div>
+                            <p class="mt-4 text-slate-500 font-medium">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="card-premium p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-chart-bar mr-2 text-green-500"></i>Top Products
+                    </h3>
+                    <div id="top-products-chart" class="chart-container h-80 flex items-center justify-center">
+                        <div class="flex flex-col items-center justify-center h-full">
+                            <div class="loading-spinner"></div>
+                            <p class="mt-4 text-slate-500 font-medium">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-premium p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-chart-bar mr-2 text-blue-500"></i>Profit Margin by Category
+                    </h3>
+                    <div id="profit-margin-by-category-chart" class="chart-container h-80 flex items-center justify-center">
+                        <div class="flex flex-col items-center justify-center h-full">
+                            <div class="loading-spinner"></div>
+                            <p class="mt-4 text-slate-500 font-medium">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="card-premium p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-chart-scatter mr-2 text-orange-500"></i>Stock vs Sales
+                    </h3>
+                    <div id="stock-vs-sales-chart" class="chart-container h-80 flex items-center justify-center">
+                        <div class="flex flex-col items-center justify-center h-full">
+                            <div class="loading-spinner"></div>
+                            <p class="mt-4 text-slate-500 font-medium">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-premium p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-chart-scatter mr-2 text-pink-500"></i>Revenue vs Margin
+                    </h3>
+                    <div id="revenue-vs-margin-chart" class="chart-container h-80 flex items-center justify-center">
+                        <div class="flex flex-col items-center justify-center h-full">
+                            <div class="loading-spinner"></div>
+                            <p class="mt-4 text-slate-500 font-medium">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 gap-8">
+                <div class="card-premium p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-chart-line mr-2 text-teal-500"></i>Category Performance
+                    </h3>
+                    <div id="category-performance-chart" class="chart-container h-80 flex items-center justify-center">
+                        <div class="flex flex-col items-center justify-center h-full">
+                            <div class="loading-spinner"></div>
+                            <p class="mt-4 text-slate-500 font-medium">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Insights & Recommendations Tab -->
+        <div id="insights" class="tab-content">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="card-premium p-6 bg-white/80 backdrop-blur-md shadow-xl rounded-2xl">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800"><i class="fas fa-lightbulb mr-2"></i>Key Recommendations</h3>
+                    <div class="space-y-4">
+                        <div class="p-4 bg-gradient-to-r from-emerald-100 to-emerald-50 rounded-lg border-l-4 border-emerald-500 shadow">
+                            <h4 class="font-semibold text-emerald-800">Optimize Pricing Strategy</h4>
+                            <p class="text-slate-600 text-sm mt-1">Review products with negative margins and adjust pricing to improve profitability.</p>
+                        </div>
+                        <div class="p-4 bg-gradient-to-r from-blue-100 to-blue-50 rounded-lg border-l-4 border-blue-500 shadow">
+                            <h4 class="font-semibold text-blue-800">Expand Top Performers</h4>
+                            <p class="text-slate-600 text-sm mt-1">Focus on expanding successful product lines that show high profit margins.</p>
+                        </div>
+                        <div class="p-4 bg-gradient-to-r from-amber-100 to-amber-50 rounded-lg border-l-4 border-amber-500 shadow">
+                            <h4 class="font-semibold text-amber-800">Inventory Management</h4>
+                            <p class="text-slate-600 text-sm mt-1">Monitor stock levels and reorder points to prevent stockouts.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-premium p-6 bg-white/80 backdrop-blur-md shadow-xl rounded-2xl">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800"><i class="fas fa-chart-line mr-2"></i>Performance Insights</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg shadow">
+                            <span class="text-slate-600">Total Products</span>
+                            <span class="font-semibold" id="total-products">Loading...</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg shadow">
+                            <span class="text-slate-600">Negative Margin Products</span>
+                            <span class="font-semibold text-red-600" id="negative-margin-count">Loading...</span>
+                        </div>
+                        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg shadow">
+                            <span class="text-slate-600">High Margin Products (&gt;50%)</span>
+                            <span class="font-semibold text-emerald-600" id="high-margin-count">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Floating Action Button -->
+    <button id="fab-action" class="fixed bottom-8 right-8 z-50 bg-gradient-to-r from-primary to-secondary text-white rounded-full shadow-2xl w-20 h-20 flex items-center justify-center text-3xl hover:scale-110 transition-all duration-500 transform">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <script>
+        // Tab functionality
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                // Remove active class from all tabs and content
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab
+                this.classList.add('active');
+                
+                // Show corresponding content
+                const tabId = this.getAttribute('data-tab');
+                document.getElementById(tabId).classList.add('active');
+                
+                // Load charts if charts tab is selected
+                if (tabId === 'charts') {
+                    setTimeout(() => {
+                        loadCharts();
+                    }, 100);
+                }
+            });
+        });
+
+        // Load metrics
+        async function loadMetrics() {
+            try {
+                const response = await fetch('/api/metrics');
+                const metrics = await response.json();
+                
+                document.getElementById('total-revenue').textContent = `$${metrics.total_revenue.toLocaleString()}`;
+                document.getElementById('units-sold').textContent = metrics.total_units_sold.toLocaleString();
+                document.getElementById('stock-remaining').textContent = metrics.total_stock_remaining.toLocaleString();
+                document.getElementById('avg-margin').textContent = `${metrics.avg_profit_margin.toFixed(1)}%`;
+                document.getElementById('top-product-revenue').textContent = `$${metrics.top_product_revenue.toLocaleString()}`;
+                document.getElementById('top-product-name').textContent = metrics.top_product.substring(0, 30) + '...';
+                document.getElementById('total-products').textContent = metrics.total_products.toLocaleString();
+                document.getElementById('negative-margin-count').textContent = metrics.negative_margin_products.toLocaleString();
+                document.getElementById('high-margin-count').textContent = metrics.high_margin_products.toLocaleString();
+            } catch (error) {
+                console.error('Error loading metrics:', error);
+            }
+        }
+
+        // Load tables
+        async function loadTables() {
+            try {
+                // Top products table
+                const topProductsResponse = await fetch('/api/data/top-products');
+                const topProductsData = await topProductsResponse.json();
+                
+                const topProductsTable = document.getElementById('top-products-table');
+                topProductsTable.innerHTML = topProductsData.map(product => `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3">${product.Description.substring(0, 30)}...</td>
+                        <td class="p-3">${product.Category}</td>
+                        <td class="p-3">${product.Sold}</td>
+                        <td class="p-3">${product.Stock}</td>
+                        <td class="p-3">$${product.Total.toLocaleString()}</td>
+                        <td class="p-3">${product.Margin.toFixed(1)}%</td>
+                        <td class="p-3">$${product.Profit.toLocaleString()}</td>
+                    </tr>
+                `).join('');
+
+                // Negative margin table
+                const negativeMarginResponse = await fetch('/api/data/negative-margin');
+                const negativeMarginData = await negativeMarginResponse.json();
+                
+                const negativeMarginTable = document.getElementById('negative-margin-table');
+                negativeMarginTable.innerHTML = negativeMarginData.map(product => `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3">${product.Description.substring(0, 30)}...</td>
+                        <td class="p-3">${product.Category}</td>
+                        <td class="p-3">${product.Sold}</td>
+                        <td class="p-3">${product.Stock}</td>
+                        <td class="p-3">$${product.Total.toLocaleString()}</td>
+                        <td class="p-3 text-red-600">${product.Margin.toFixed(1)}%</td>
+                        <td class="p-3">$${product.Cost.toLocaleString()}</td>
+                    </tr>
+                `).join('');
+
+                // Category summary table
+                const categorySummaryResponse = await fetch('/api/data/category-summary');
+                const categorySummaryData = await categorySummaryResponse.json();
+                
+                const categorySummaryTable = document.getElementById('category-summary-table');
+                categorySummaryTable.innerHTML = Object.entries(categorySummaryData).map(([category, data]) => `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-semibold">${category}</td>
+                        <td class="p-3">$${data.Total_sum.toLocaleString()}</td>
+                        <td class="p-3">${data.Total_count}</td>
+                        <td class="p-3">${data.Margin_mean.toFixed(1)}%</td>
+                        <td class="p-3">${data.Sold_sum.toLocaleString()}</td>
+                        <td class="p-3">${data.Stock_sum.toLocaleString()}</td>
+                        <td class="p-3">$${data.Cost_sum.toLocaleString()}</td>
+                        <td class="p-3">$${data.Profit_sum.toLocaleString()}</td>
+                    </tr>
+                `).join('');
+
+            } catch (error) {
+                console.error('Error loading tables:', error);
+            }
+        }
+
+        // Load charts
+        async function loadCharts() {
+            try {
+                console.log('Loading charts...');
+                
+                // Revenue by category chart
+                const revenueByCategoryResponse = await fetch('/api/charts/revenue-by-category');
+                if (!revenueByCategoryResponse.ok) {
+                    const errorData = await revenueByCategoryResponse.json();
+                    throw new Error(errorData.error || 'Failed to load revenue chart');
+                }
+                const revenueByCategoryData = await revenueByCategoryResponse.json();
+                Plotly.newPlot('revenue-by-category-chart', revenueByCategoryData.data, revenueByCategoryData.layout);
+
+                // Margin distribution chart
+                const marginDistributionResponse = await fetch('/api/charts/margin-distribution');
+                if (!marginDistributionResponse.ok) {
+                    const errorData = await marginDistributionResponse.json();
+                    throw new Error(errorData.error || 'Failed to load margin chart');
+                }
+                const marginDistributionData = await marginDistributionResponse.json();
+                Plotly.newPlot('margin-distribution-chart', marginDistributionData.data, marginDistributionData.layout);
+
+                // Top products chart
+                const topProductsChartResponse = await fetch('/api/charts/top-products-chart');
+                if (!topProductsChartResponse.ok) {
+                    const errorData = await topProductsChartResponse.json();
+                    throw new Error(errorData.error || 'Failed to load top products chart');
+                }
+                const topProductsChartData = await topProductsChartResponse.json();
+                Plotly.newPlot('top-products-chart', topProductsChartData.data, topProductsChartData.layout);
+
+                // Profit margin by category chart
+                const profitMarginByCategoryResponse = await fetch('/api/charts/profit-margin-by-category');
+                if (!profitMarginByCategoryResponse.ok) {
+                    const errorData = await profitMarginByCategoryResponse.json();
+                    throw new Error(errorData.error || 'Failed to load profit margin chart');
+                }
+                const profitMarginByCategoryData = await profitMarginByCategoryResponse.json();
+                Plotly.newPlot('profit-margin-by-category-chart', profitMarginByCategoryData.data, profitMarginByCategoryData.layout);
+
+                // Stock vs sales chart
+                const stockVsSalesResponse = await fetch('/api/charts/stock-vs-sales');
+                if (!stockVsSalesResponse.ok) {
+                    const errorData = await stockVsSalesResponse.json();
+                    throw new Error(errorData.error || 'Failed to load stock vs sales chart');
+                }
+                const stockVsSalesData = await stockVsSalesResponse.json();
+                Plotly.newPlot('stock-vs-sales-chart', stockVsSalesData.data, stockVsSalesData.layout);
+
+                // Revenue vs margin chart
+                const revenueVsMarginResponse = await fetch('/api/charts/revenue-vs-margin');
+                if (!revenueVsMarginResponse.ok) {
+                    const errorData = await revenueVsMarginResponse.json();
+                    throw new Error(errorData.error || 'Failed to load revenue vs margin chart');
+                }
+                const revenueVsMarginData = await revenueVsMarginResponse.json();
+                Plotly.newPlot('revenue-vs-margin-chart', revenueVsMarginData.data, revenueVsMarginData.layout);
+
+                // Category performance chart
+                const categoryPerformanceResponse = await fetch('/api/charts/category-performance');
+                if (!categoryPerformanceResponse.ok) {
+                    const errorData = await categoryPerformanceResponse.json();
+                    throw new Error(errorData.error || 'Failed to load category performance chart');
+                }
+                const categoryPerformanceData = await categoryPerformanceResponse.json();
+                Plotly.newPlot('category-performance-chart', categoryPerformanceData.data, categoryPerformanceData.layout);
+
+                console.log('All charts loaded successfully!');
+
+            } catch (error) {
+                console.error('Error loading charts:', error);
+                document.querySelectorAll('[id$="-chart"]').forEach(chartDiv => {
+                    chartDiv.innerHTML = `
+                        <div class="p-4 bg-red-50 rounded-lg border border-red-200">
+                            <h5 class="font-semibold text-red-800"><i class="fas fa-exclamation-triangle mr-2"></i>Chart Loading Error</h5>
+                            <p class="text-red-600 text-sm">${error.message}</p>
+                            <small class="text-red-500">Please refresh the page and try again.</small>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMetrics();
+            loadTables();
+            
+            if (typeof Plotly !== 'undefined') {
+                console.log('Plotly is loaded successfully!');
+            } else {
+                console.error('Plotly is not loaded!');
+            }
+        });
+    </script>
+</body>
+</html> 
