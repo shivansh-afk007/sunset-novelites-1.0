@@ -1,0 +1,23 @@
+run = "python simple_app.py"
+entrypoint = "simple_app.py"
+
+[nix]
+channel = "stable-22_11"
+
+[env]
+PYTHONPATH = "${PYTHONPATH}:${REPL_HOME}"
+
+[packager]
+language = "python3"
+
+[packager.features]
+packageSearch = true
+guessImports = true
+
+[languages]
+[languages.python]
+pattern = "**/*.py"
+syntax = "python"
+
+[languages.python.languageServer]
+start = [ "pylsp" ] 
