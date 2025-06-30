@@ -89,6 +89,9 @@
             <button class="nav-tab" data-tab="categories">
                 <i class="fas fa-tags mr-2"></i>Category Analysis
             </button>
+            <button class="nav-tab" data-tab="warehouse">
+                <i class="fas fa-warehouse mr-2"></i>Warehouse Info
+            </button>
             <button class="nav-tab" data-tab="charts">
                 <i class="fas fa-chart-line mr-2"></i>Charts & Analytics
             </button>
@@ -297,6 +300,220 @@
             </div>
         </div>
 
+        <!-- Warehouse Info Tab -->
+        <div id="warehouse" class="tab-content">
+            <!-- Warehouse Metrics -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8" id="warehouse-metrics-grid">
+                <div class="metric-card p-6">
+                    <div class="flex items-center mb-2">
+                        <div class="w-12 h-12 gradient-accent rounded-2xl flex items-center justify-center mr-3 shadow-lg">
+                            <span class="text-white text-xl font-bold">📦</span>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-slate-500 uppercase tracking-wide">Total Products</h3>
+                            <span class="text-2xl font-bold text-slate-800" id="warehouse-total-products">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="text-slate-600 text-xs font-semibold flex items-center">
+                        <i class="fas fa-boxes mr-1"></i>In warehouse
+                    </div>
+                </div>
+                <div class="metric-card p-6">
+                    <div class="flex items-center mb-2">
+                        <div class="w-12 h-12 gradient-secondary rounded-2xl flex items-center justify-center mr-3 shadow-lg">
+                            <span class="text-white text-xl font-bold">📊</span>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-slate-500 uppercase tracking-wide">Current Stock</h3>
+                            <span class="text-2xl font-bold text-slate-800" id="warehouse-total-stock">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="text-emerald-600 text-xs font-semibold flex items-center">
+                        <i class="fas fa-arrow-up mr-1"></i>Total units
+                    </div>
+                </div>
+                <div class="metric-card p-6">
+                    <div class="flex items-center mb-2">
+                        <div class="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mr-3 shadow-lg">
+                            <span class="text-white text-xl font-bold">⚠️</span>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-slate-500 uppercase tracking-wide">Need Restock</h3>
+                            <span class="text-2xl font-bold text-slate-800" id="warehouse-restock-needed">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="text-red-600 text-xs font-semibold flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-1"></i>Products
+                    </div>
+                </div>
+                <div class="metric-card p-6">
+                    <div class="flex items-center mb-2">
+                        <div class="w-12 h-12 gradient-dark rounded-2xl flex items-center justify-center mr-3 shadow-lg">
+                            <span class="text-white text-xl font-bold">⏰</span>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-slate-500 uppercase tracking-wide">Avg Lead Time</h3>
+                            <span class="text-2xl font-bold text-slate-800" id="warehouse-lead-time">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="text-slate-600 text-xs font-semibold flex items-center">
+                        <i class="fas fa-clock mr-1"></i>Days
+                    </div>
+                </div>
+                <div class="metric-card p-6">
+                    <div class="flex items-center mb-2">
+                        <div class="w-12 h-12 gradient-primary rounded-2xl flex items-center justify-center mr-3 shadow-lg">
+                            <span class="text-white text-xl font-bold">🚨</span>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-slate-500 uppercase tracking-wide">Critical Stock</h3>
+                            <span class="text-2xl font-bold text-slate-800" id="warehouse-critical-stock">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="text-red-600 text-xs font-semibold flex items-center">
+                        <i class="fas fa-fire mr-1"></i>≤7 days
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warehouse Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="card-premium p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-chart-pie mr-2 text-purple-500"></i>Stock Status Distribution
+                    </h3>
+                    <div id="warehouse-stock-status-chart" class="chart-container h-80 flex items-center justify-center">
+                        <div class="flex flex-col items-center justify-center h-full">
+                            <div class="loading-spinner"></div>
+                            <p class="mt-4 text-slate-500 font-medium">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-premium p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-chart-bar mr-2 text-indigo-500"></i>Stock by Location
+                    </h3>
+                    <div id="warehouse-location-chart" class="chart-container h-80 flex items-center justify-center">
+                        <div class="flex flex-col items-center justify-center h-full">
+                            <div class="loading-spinner"></div>
+                            <p class="mt-4 text-slate-500 font-medium">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Restock Alerts and Warehouse Summary -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="table-container p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-2 text-red-500"></i>Restock Alerts
+                    </h3>
+                    <div class="overflow-x-auto rounded-xl shadow-md">
+                        <table class="w-full text-sm bg-white/70 rounded-xl">
+                            <thead class="bg-gradient-to-r from-red-500 to-red-600 text-white sticky top-0 z-10">
+                                <tr>
+                                    <th class="text-left p-4 font-semibold">Product</th>
+                                    <th class="text-left p-4 font-semibold">Category</th>
+                                    <th class="text-left p-4 font-semibold">Current Stock</th>
+                                    <th class="text-left p-4 font-semibold">Reorder Point</th>
+                                    <th class="text-left p-4 font-semibold">Days Until Stockout</th>
+                                    <th class="text-left p-4 font-semibold">Supplier</th>
+                                </tr>
+                            </thead>
+                            <tbody id="restock-alerts-table">
+                                <tr>
+                                    <td colspan="6" class="text-center p-8">
+                                        <div class="loading-spinner"></div>
+                                        <p class="mt-4 text-slate-500 font-medium">Loading alerts...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="table-container p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-warehouse mr-2 text-blue-500"></i>Warehouse Summary
+                    </h3>
+                    <div class="overflow-x-auto rounded-xl shadow-md">
+                        <table class="w-full text-sm bg-white/70 rounded-xl">
+                            <thead class="bg-gradient-to-r from-primary to-secondary text-white sticky top-0 z-10">
+                                <tr>
+                                    <th class="text-left p-4 font-semibold">Category</th>
+                                    <th class="text-left p-4 font-semibold">Total Stock</th>
+                                    <th class="text-left p-4 font-semibold">Avg Stock</th>
+                                    <th class="text-left p-4 font-semibold">Reorder Points</th>
+                                    <th class="text-left p-4 font-semibold">Safety Stock</th>
+                                    <th class="text-left p-4 font-semibold">Need Restock</th>
+                                </tr>
+                            </thead>
+                            <tbody id="warehouse-summary-table">
+                                <tr>
+                                    <td colspan="6" class="text-center p-8">
+                                        <div class="loading-spinner"></div>
+                                        <p class="mt-4 text-slate-500 font-medium">Loading summary...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Warehouse Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="card-premium p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-chart-bar mr-2 text-orange-500"></i>Restock Urgency
+                    </h3>
+                    <div id="restock-urgency-chart" class="chart-container h-80 flex items-center justify-center">
+                        <div class="flex flex-col items-center justify-center h-full">
+                            <div class="loading-spinner"></div>
+                            <p class="mt-4 text-slate-500 font-medium">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-premium p-6">
+                    <h3 class="text-xl font-semibold mb-4 text-slate-800 flex items-center">
+                        <i class="fas fa-chart-line mr-2 text-green-500"></i>Supplier Analysis
+                    </h3>
+                    <div id="supplier-analysis-chart" class="chart-container h-80 flex items-center justify-center">
+                        <div class="flex flex-col items-center justify-center h-full">
+                            <div class="loading-spinner"></div>
+                            <p class="mt-4 text-slate-500 font-medium">Loading chart...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warehouse Insights -->
+            <div class="card-premium p-6 bg-white/80 backdrop-blur-md shadow-xl rounded-2xl">
+                <h3 class="text-xl font-semibold mb-4 text-slate-800"><i class="fas fa-lightbulb mr-2"></i>Warehouse Insights</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <div class="p-4 bg-gradient-to-r from-emerald-100 to-emerald-50 rounded-lg border-l-4 border-emerald-500 shadow">
+                            <h4 class="font-semibold text-emerald-800">Inventory Optimization</h4>
+                            <p class="text-slate-600 text-sm mt-1">Monitor reorder points and safety stock levels to prevent stockouts while minimizing excess inventory.</p>
+                        </div>
+                        <div class="p-4 bg-gradient-to-r from-blue-100 to-blue-50 rounded-lg border-l-4 border-blue-500 shadow">
+                            <h4 class="font-semibold text-blue-800">Lead Time Management</h4>
+                            <p class="text-slate-600 text-sm mt-1">Track supplier lead times and adjust reorder points accordingly to maintain optimal stock levels.</p>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <div class="p-4 bg-gradient-to-r from-amber-100 to-amber-50 rounded-lg border-l-4 border-amber-500 shadow">
+                            <h4 class="font-semibold text-amber-800">Stock Turnover</h4>
+                            <p class="text-slate-600 text-sm mt-1">Analyze stock turnover rates to identify slow-moving inventory and optimize warehouse space.</p>
+                        </div>
+                        <div class="p-4 bg-gradient-to-r from-purple-100 to-purple-50 rounded-lg border-l-4 border-purple-500 shadow">
+                            <h4 class="font-semibold text-purple-800">Location Optimization</h4>
+                            <p class="text-slate-600 text-sm mt-1">Distribute inventory across warehouse locations based on demand patterns and accessibility.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Charts & Analytics Tab -->
         <div id="charts" class="tab-content">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
@@ -433,25 +650,25 @@
     </button>
 
     <script>
-        // Tab functionality
+        // Tab switching
         document.querySelectorAll('.nav-tab').forEach(tab => {
             tab.addEventListener('click', function() {
+                const targetTab = this.getAttribute('data-tab');
+                
                 // Remove active class from all tabs and content
                 document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 
-                // Add active class to clicked tab
+                // Add active class to clicked tab and show content
                 this.classList.add('active');
+                document.getElementById(targetTab).classList.add('active');
                 
-                // Show corresponding content
-                const tabId = this.getAttribute('data-tab');
-                document.getElementById(tabId).classList.add('active');
-                
-                // Load charts if charts tab is selected
-                if (tabId === 'charts') {
-                    setTimeout(() => {
-                        loadCharts();
-                    }, 100);
+                // Load specific data for each tab
+                if (targetTab === 'charts') {
+                    loadCharts();
+                } else if (targetTab === 'warehouse') {
+                    loadWarehouseData();
+                    loadWarehouseCharts();
                 }
             });
         });
@@ -533,6 +750,125 @@
 
             } catch (error) {
                 console.error('Error loading tables:', error);
+            }
+        }
+
+        // Load warehouse data
+        async function loadWarehouseData() {
+            try {
+                // Load warehouse metrics
+                const warehouseMetricsResponse = await fetch('/api/warehouse/metrics');
+                const warehouseMetrics = await warehouseMetricsResponse.json();
+                
+                document.getElementById('warehouse-total-products').textContent = warehouseMetrics.total_products.toLocaleString();
+                document.getElementById('warehouse-total-stock').textContent = warehouseMetrics.total_current_stock.toLocaleString();
+                document.getElementById('warehouse-restock-needed').textContent = warehouseMetrics.products_needing_restock.toLocaleString();
+                document.getElementById('warehouse-lead-time').textContent = warehouseMetrics.avg_lead_time.toFixed(1);
+                document.getElementById('warehouse-critical-stock').textContent = warehouseMetrics.critical_stock_products.toLocaleString();
+
+                // Load restock alerts table
+                const restockAlertsResponse = await fetch('/api/data/restock-alerts');
+                const restockAlertsData = await restockAlertsResponse.json();
+                
+                const restockAlertsTable = document.getElementById('restock-alerts-table');
+                if (restockAlertsData.length > 0) {
+                    restockAlertsTable.innerHTML = restockAlertsData.map(product => `
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-3">${product.Product_Name.substring(0, 30)}...</td>
+                            <td class="p-3">${product.Category}</td>
+                            <td class="p-3">${product.Current_Stock}</td>
+                            <td class="p-3">${product.Reorder_Point}</td>
+                            <td class="p-3 ${product.Days_Until_Stockout <= 7 ? 'text-red-600 font-semibold' : ''}">${product.Days_Until_Stockout}</td>
+                            <td class="p-3">${product.Supplier}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    restockAlertsTable.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center p-8 text-emerald-600 font-medium">
+                                <i class="fas fa-check-circle mr-2"></i>No restock alerts - all products are well stocked!
+                            </td>
+                        </tr>
+                    `;
+                }
+
+                // Load warehouse summary table
+                const warehouseSummaryResponse = await fetch('/api/data/warehouse-summary');
+                const warehouseSummaryData = await warehouseSummaryResponse.json();
+                
+                const warehouseSummaryTable = document.getElementById('warehouse-summary-table');
+                warehouseSummaryTable.innerHTML = Object.entries(warehouseSummaryData).map(([category, data]) => `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-semibold">${category}</td>
+                        <td class="p-3">${data.Current_Stock_sum.toLocaleString()}</td>
+                        <td class="p-3">${data.Current_Stock_mean.toFixed(1)}</td>
+                        <td class="p-3">${data.Reorder_Point_sum.toLocaleString()}</td>
+                        <td class="p-3">${data.Safety_Stock_sum.toLocaleString()}</td>
+                        <td class="p-3 ${data.Restock_Needed_sum > 0 ? 'text-red-600 font-semibold' : 'text-emerald-600'}">${data.Restock_Needed_sum}</td>
+                    </tr>
+                `).join('');
+
+            } catch (error) {
+                console.error('Error loading warehouse data:', error);
+            }
+        }
+
+        // Load warehouse charts
+        async function loadWarehouseCharts() {
+            try {
+                console.log('Loading warehouse charts...');
+                
+                // Warehouse stock status chart
+                const warehouseStockStatusResponse = await fetch('/api/charts/warehouse-stock-status');
+                if (!warehouseStockStatusResponse.ok) {
+                    const errorData = await warehouseStockStatusResponse.json();
+                    throw new Error(errorData.error || 'Failed to load warehouse stock status chart');
+                }
+                const warehouseStockStatusData = await warehouseStockStatusResponse.json();
+                Plotly.newPlot('warehouse-stock-status-chart', warehouseStockStatusData.data, warehouseStockStatusData.layout);
+
+                // Warehouse location chart
+                const warehouseLocationResponse = await fetch('/api/charts/warehouse-location');
+                if (!warehouseLocationResponse.ok) {
+                    const errorData = await warehouseLocationResponse.json();
+                    throw new Error(errorData.error || 'Failed to load warehouse location chart');
+                }
+                const warehouseLocationData = await warehouseLocationResponse.json();
+                Plotly.newPlot('warehouse-location-chart', warehouseLocationData.data, warehouseLocationData.layout);
+
+                // Restock urgency chart
+                const restockUrgencyResponse = await fetch('/api/charts/restock-urgency');
+                if (!restockUrgencyResponse.ok) {
+                    const errorData = await restockUrgencyResponse.json();
+                    throw new Error(errorData.error || 'Failed to load restock urgency chart');
+                }
+                const restockUrgencyData = await restockUrgencyResponse.json();
+                Plotly.newPlot('restock-urgency-chart', restockUrgencyData.data, restockUrgencyData.layout);
+
+                // Supplier analysis chart
+                const supplierAnalysisResponse = await fetch('/api/charts/supplier-analysis');
+                if (!supplierAnalysisResponse.ok) {
+                    const errorData = await supplierAnalysisResponse.json();
+                    throw new Error(errorData.error || 'Failed to load supplier analysis chart');
+                }
+                const supplierAnalysisData = await supplierAnalysisResponse.json();
+                Plotly.newPlot('supplier-analysis-chart', supplierAnalysisData.data, supplierAnalysisData.layout);
+
+                console.log('All warehouse charts loaded successfully!');
+
+            } catch (error) {
+                console.error('Error loading warehouse charts:', error);
+                document.querySelectorAll('[id*="warehouse"], [id*="restock"], [id*="supplier"]').forEach(chartDiv => {
+                    if (chartDiv.id.includes('chart')) {
+                        chartDiv.innerHTML = `
+                            <div class="p-4 bg-red-50 rounded-lg border border-red-200">
+                                <h5 class="font-semibold text-red-800"><i class="fas fa-exclamation-triangle mr-2"></i>Chart Loading Error</h5>
+                                <p class="text-red-600 text-sm">${error.message}</p>
+                                <small class="text-red-500">Please refresh the page and try again.</small>
+                            </div>
+                        `;
+                    }
+                });
             }
         }
 
@@ -624,6 +960,8 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadMetrics();
             loadTables();
+            loadWarehouseData();
+            loadWarehouseCharts();
             
             if (typeof Plotly !== 'undefined') {
                 console.log('Plotly is loaded successfully!');
