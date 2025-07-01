@@ -7,150 +7,33 @@ import json
 import numpy as np
 from datetime import datetime
 import warnings
-import mysql.connector
-from sqlalchemy import create_engine, text
 warnings.filterwarnings('ignore')
 
 app = Flask(__name__)
 
 class SimpleSalesDashboard:
     def __init__(self):
-        self.synchub_df = None
-        self.acumatica_df = None
+        self.df = None
+        self.warehouse_df = None
         self.insights = {}
         self.warehouse_insights = {}
-        self.load_data()
-        self.load_warehouse_data()
-    
-    def get_mysql_connection(self, database):
-        """Get MySQL connection for specified database"""
-        try:
-            connection = mysql.connector.connect(
-                host='localhost',
-                user='root',
-                password='',
-                database=database,
-                connect_timeout=3  # Short timeout to prevent hanging
-            )
-            return connection
-        except Exception as e:
-            print(f"Error connecting to MySQL database {database}: {e}")
-            return None
-    
-    def load_data(self):
-        """Load and prepare the data from MySQL databases"""
-        try:
-            # Load Synchub data (Lightspeed) - LIMITED TO 100 RECORDS
-            synchub_conn = self.get_mysql_connection('synchub_data')
-            if synchub_conn:
-                try:
-                    # Limited query for Synchub using actual column names
-                    synchub_query = '''
-                    SELECT 
-                        i.Description,
-                        i.RemoteID as `System ID`,
-                        COALESCE(SUM(ol.Quantity), 0) as Sold,
-                        COALESCE(MAX(is1.Qoh), 0) as Stock,
-                        COALESCE(SUM(ol.Price * ol.Quantity), 0) as Subtotal,
-                        0 as Discounts,
-                        COALESCE(SUM(ol.Price * ol.Quantity), 0) as `Subtotal w/ Discounts`,
-                        COALESCE(SUM(ol.Total), 0) as Total,
-                        0 as Cost,
-                        COALESCE(SUM(ol.Total), 0) as Profit,
-                        100 as Margin
-                    FROM item i
-                    LEFT JOIN orderline ol ON i.RemoteID = ol.ItemID
-                    LEFT JOIN itemshop is1 ON i.RemoteID = is1.ItemID
-                    WHERE i.Description IS NOT NULL
-                    GROUP BY i.RemoteID, i.Description
-                    LIMIT 100
-                    '''
-                    self.synchub_df = pd.read_sql(synchub_query, synchub_conn)
-                    synchub_conn.close()
-                    self.synchub_df['Category'] = self.categorize_products(self.synchub_df['Description'])
-                    print(f"Loaded {len(self.synchub_df)} records from Synchub database (limited sample)")
-                except Exception as e:
-                    print(f"Error loading Synchub data: {e}")
-                    self.synchub_df = pd.DataFrame()
-            else:
-                print("Could not connect to Synchub database")
-                self.synchub_df = pd.DataFrame()
-            
-            # Load Acumatica data - LIMITED TO 100 RECORDS
-            acumatica_conn = self.get_mysql_connection('acumatica_data')
-            if acumatica_conn:
-                try:
-                    acumatica_query = '''
-                    SELECT 
-                        i.Descr as Description,
-                        i.InventoryID as `System ID`,
-                        COALESCE(SUM(sod.OrderQty), 0) as Sold,
-                        0 as Stock,
-                        COALESCE(SUM(sod.UnitPrice * sod.OrderQty), 0) as Subtotal,
-                        COALESCE(SUM(sod.DiscountAmount), 0) as Discounts,
-                        COALESCE(SUM(sod.UnitPrice * sod.OrderQty) - SUM(sod.DiscountAmount), 0) as `Subtotal w/ Discounts`,
-                        COALESCE(SUM(sod.ExtendedPrice), 0) as Total,
-                        0 as Cost,
-                        COALESCE(SUM(sod.ExtendedPrice), 0) as Profit,
-                        100 as Margin
-                    FROM inventoryitem i
-                    LEFT JOIN salesorderdetail sod ON i.InventoryID = sod.InventoryID
-                    WHERE i.Descr IS NOT NULL
-                    GROUP BY i.InventoryID, i.Descr
-                    LIMIT 100
-                    '''
-                    self.acumatica_df = pd.read_sql(acumatica_query, acumatica_conn)
-                    acumatica_conn.close()
-                    self.acumatica_df['Category'] = self.categorize_products(self.acumatica_df['Description'])
-                    print(f"Loaded {len(self.acumatica_df)} records from Acumatica database (limited sample)")
-                except Exception as e:
-                    print(f"Error loading Acumatica data: {e}")
-                    self.acumatica_df = pd.DataFrame()
-            else:
-                print("Could not connect to Acumatica database")
-                self.acumatica_df = pd.DataFrame()
-            
-            # If no data loaded from databases, create sample data
-            if self.synchub_df.empty and self.acumatica_df.empty:
-                print("No database data available, creating sample data for demonstration")
-                self.create_sample_data()
-            
-            # Combine data from both sources
-            if not self.synchub_df.empty and not self.acumatica_df.empty:
-                self.synchub_df['Source'] = 'Lightspeed'
-                self.acumatica_df['Source'] = 'Acumatica'
-                self.df = pd.concat([self.synchub_df, self.acumatica_df], ignore_index=True)
-            elif not self.synchub_df.empty:
-                self.df = self.synchub_df.copy()
-                self.df['Source'] = 'Lightspeed'
-            elif not self.acumatica_df.empty:
-                self.df = self.acumatica_df.copy()
-                self.df['Source'] = 'Acumatica'
-            else:
-                self.df = pd.DataFrame()
-                print("No data loaded from either database")
-            
-            if not self.df.empty:
-                self.generate_insights()
-                print(f"Combined dataset has {len(self.df)} records (limited sample)")
-            else:
-                print("No data available for analysis")
-            
-        except Exception as e:
-            print(f"Error loading data: {str(e)}")
-            self.df = pd.DataFrame()
-            self.create_sample_data()
+        self.create_sample_data()
+        self.create_sample_warehouse_data()
+        self.generate_insights()
+        self.generate_warehouse_insights()
     
     def create_sample_data(self):
-        """Create sample data for demonstration when databases are not available"""
-        print("Creating sample data for demonstration...")
+        """Create sample data for demonstration"""
+        print("Creating sample sales data for demonstration...")
         
         sample_products = [
             "Premium Vibrator Deluxe", "Rhino Male Enhancement", "Silky Lube Gel", 
             "Lace Lingerie Set", "Adult Toy Collection", "Battery Charger Kit",
             "Wand Massager Pro", "Mood Enhancement Pills", "Leather Restraints",
             "Silicone Dildo Set", "Lubricant Oil", "Stockings & Garters",
-            "Adult Game Kit", "Cleaner Solution", "Remote Control Toy"
+            "Adult Game Kit", "Cleaner Solution", "Remote Control Toy",
+            "Vibrating Ring", "Female Enhancement", "Massage Oil", "Corset Set",
+            "Anal Plug Set", "Charging Station", "Heating Lube", "Fishnet Stockings"
         ]
         
         categories = ['Vibrators', 'Supplements', 'Lubricants', 'Clothing & Accessories', 
@@ -188,147 +71,54 @@ class SimpleSalesDashboard:
         self.df = pd.DataFrame(sample_data)
         print(f"Created {len(self.df)} sample products")
     
-    def load_warehouse_data(self):
-        """Load warehouse data from MySQL databases"""
-        try:
-            warehouse_data = []
+    def create_sample_warehouse_data(self):
+        """Create sample warehouse data"""
+        print("Creating sample warehouse data...")
+        
+        warehouse_products = [
+            "Premium Vibrator Deluxe", "Rhino Male Enhancement", "Silky Lube Gel", 
+            "Lace Lingerie Set", "Adult Toy Collection", "Battery Charger Kit",
+            "Wand Massager Pro", "Mood Enhancement Pills", "Leather Restraints",
+            "Silicone Dildo Set", "Lubricant Oil", "Stockings & Garters"
+        ]
+        
+        categories = ['Vibrators', 'Supplements', 'Lubricants', 'Clothing & Accessories', 
+                     'Adult Toys', 'Accessories']
+        
+        np.random.seed(42)
+        warehouse_data = []
+        
+        for i, product in enumerate(warehouse_products):
+            category = categories[i % len(categories)]
+            current_stock = np.random.randint(0, 100)
+            reorder_point = np.random.randint(10, 30)
+            lead_time = np.random.randint(3, 14)
             
-            # Synchub warehouse data - LIMITED TO 50 RECORDS
-            synchub_conn = self.get_mysql_connection('synchub_data')
-            if synchub_conn:
-                warehouse_query = '''
-                SELECT 
-                    i.RemoteID as Product_ID,
-                    i.Description as Product_Name,
-                    '' as Category,
-                    '' as Warehouse_Location,
-                    COALESCE(MAX(is1.Qoh), 0) as Current_Stock,
-                    COALESCE(MAX(is1.Qoh), 0) as Available_Stock,
-                    COALESCE(MAX(is1.ReorderPoint), 0) as Reorder_Point,
-                    0 as Max_Stock,
-                    '' as Supplier,
-                    '' as Supplier_Name,
-                    0 as Lead_Time_Days,
-                    0 as Total_Lead_Time,
-                    'Active' as Item_Status
-                FROM item i
-                LEFT JOIN itemshop is1 ON i.RemoteID = is1.ItemID
-                WHERE i.Description IS NOT NULL
-                GROUP BY i.RemoteID, i.Description
-                LIMIT 50
-                '''
-                synchub_warehouse = pd.read_sql(warehouse_query, synchub_conn)
-                synchub_conn.close()
-                
-                for _, row in synchub_warehouse.iterrows():
-                    warehouse_data.append({
-                        'Product_ID': row['Product_ID'],
-                        'Product_Name': row['Product_Name'],
-                        'Category': row['Category'],
-                        'Current_Stock': row['Current_Stock'],
-                        'Reorder_Point': row['Reorder_Point'],
-                        'Lead_Time_Days': row['Lead_Time_Days'],
-                        'Safety_Stock': 0,
-                        'Max_Stock': row['Max_Stock'],
-                        'Warehouse_Location': row['Warehouse_Location'],
-                        'Supplier': row['Supplier'],
-                        'Last_Updated': datetime.now().strftime('%Y-%m-%d'),
-                        'Stock_Status': 'Low' if row['Current_Stock'] <= row['Reorder_Point'] else 'Adequate',
-                        'Restock_Needed': row['Current_Stock'] <= row['Reorder_Point'],
-                        'Days_Until_Stockout': 999,
-                        'Monthly_Demand': 0,
-                        'Annual_Demand': 0,
-                        'Stock_Turnover': 0
-                    })
-            
-            # Acumatica warehouse data - LIMITED TO 50 RECORDS
-            acumatica_conn = self.get_mysql_connection('acumatica_data')
-            if acumatica_conn:
-                acumatica_warehouse_query = '''
-                SELECT 
-                    i.InventoryID as Product_ID,
-                    i.Descr as Product_Name,
-                    '' as Category,
-                    '' as Warehouse_Location,
-                    0 as Current_Stock,
-                    0 as Available_Stock,
-                    0 as Reorder_Point,
-                    0 as Max_Stock,
-                    '' as Supplier,
-                    '' as Supplier_Name,
-                    0 as Lead_Time_Days,
-                    0 as Total_Lead_Time,
-                    'Active' as Item_Status
-                FROM inventoryitem i
-                WHERE i.Descr IS NOT NULL
-                LIMIT 50
-                '''
-                acumatica_warehouse = pd.read_sql(acumatica_warehouse_query, acumatica_conn)
-                acumatica_conn.close()
-                
-                for _, row in acumatica_warehouse.iterrows():
-                    warehouse_data.append({
-                        'Product_ID': row['Product_ID'],
-                        'Product_Name': row['Product_Name'],
-                        'Category': row['Category'],
-                        'Current_Stock': row['Current_Stock'],
-                        'Reorder_Point': row['Reorder_Point'],
-                        'Lead_Time_Days': row['Lead_Time_Days'],
-                        'Safety_Stock': 0,
-                        'Max_Stock': row['Max_Stock'],
-                        'Warehouse_Location': row['Warehouse_Location'],
-                        'Supplier': row['Supplier'],
-                        'Last_Updated': datetime.now().strftime('%Y-%m-%d'),
-                        'Stock_Status': 'Low' if row['Current_Stock'] <= row['Reorder_Point'] else 'Adequate',
-                        'Restock_Needed': row['Current_Stock'] <= row['Reorder_Point'],
-                        'Days_Until_Stockout': 999,
-                        'Monthly_Demand': 0,
-                        'Annual_Demand': 0,
-                        'Stock_Turnover': 0
-                    })
-            
-            if warehouse_data:
-                self.warehouse_df = pd.DataFrame(warehouse_data)
-                print(f"Successfully loaded warehouse data with {len(warehouse_data)} products (limited sample)")
-            else:
-                print("No warehouse data available")
-                self.warehouse_df = pd.DataFrame()
-            
-            self.generate_warehouse_insights()
-            
-        except Exception as e:
-            print(f"Error loading warehouse data: {str(e)}")
-            self.warehouse_df = pd.DataFrame()
-            self.generate_warehouse_insights()
-    
-    def categorize_products(self, descriptions):
-        """Categorize products based on description"""
-        categories = []
-        for desc in descriptions:
-            if pd.isna(desc):
-                categories.append('Other')
-                continue
-                
-            desc_lower = str(desc).lower()
-            if any(word in desc_lower for word in ['vibrator', 'rabbit', 'bullet', 'wand']):
-                categories.append('Vibrators')
-            elif any(word in desc_lower for word in ['supplement', 'rhino', 'mood', 'male', 'female']):
-                categories.append('Supplements')
-            elif any(word in desc_lower for word in ['lube', 'lubricant', 'gel', 'oil']):
-                categories.append('Lubricants')
-            elif any(word in desc_lower for word in ['dress', 'lingerie', 'bra', 'panty', 'stocking', 'heels', 'shoes']):
-                categories.append('Clothing & Accessories')
-            elif any(word in desc_lower for word in ['dildo', 'plug', 'ring', 'harness', 'restraint']):
-                categories.append('Adult Toys')
-            elif any(word in desc_lower for word in ['cleaner', 'clean', 'charger', 'battery']):
-                categories.append('Accessories')
-            else:
-                categories.append('Other')
-        return categories
+            warehouse_data.append({
+                'Product_ID': f"PROD{i+1:03d}",
+                'Product_Name': product,
+                'Category': category,
+                'Current_Stock': current_stock,
+                'Reorder_Point': reorder_point,
+                'Lead_Time_Days': lead_time,
+                'Safety_Stock': reorder_point * 0.5,
+                'Max_Stock': reorder_point * 3,
+                'Warehouse_Location': f"Zone {chr(65 + (i % 5))}",
+                'Supplier': f"Supplier {i % 4 + 1}",
+                'Last_Updated': datetime.now().strftime('%Y-%m-%d'),
+                'Stock_Status': 'Low' if current_stock <= reorder_point else 'Adequate',
+                'Restock_Needed': current_stock <= reorder_point,
+                'Days_Until_Stockout': max(1, np.random.randint(1, 30)),
+                'Monthly_Demand': np.random.randint(50, 200),
+                'Annual_Demand': np.random.randint(500, 2000),
+                'Stock_Turnover': np.random.uniform(2, 8)
+            })
+        
+        self.warehouse_df = pd.DataFrame(warehouse_data)
+        print(f"Created {len(self.warehouse_df)} warehouse products")
     
     def generate_insights(self):
         """Generate key insights from the data"""
-        # Always return all expected keys with safe defaults
         if self.df is None or self.df.empty:
             self.insights = {
                 'total_revenue': 0,
@@ -342,21 +132,21 @@ class SimpleSalesDashboard:
                 'high_margin_products': 0
             }
             return
+        
         self.insights = {
-            'total_revenue': float(self.df['Total'].sum()) if 'Total' in self.df else 0,
-            'total_units_sold': int(self.df['Sold'].sum()) if 'Sold' in self.df else 0,
-            'total_stock_remaining': int(self.df['Stock'].sum()) if 'Stock' in self.df else 0,
+            'total_revenue': float(self.df['Total'].sum()),
+            'total_units_sold': int(self.df['Sold'].sum()),
+            'total_stock_remaining': int(self.df['Stock'].sum()),
             'total_products': int(len(self.df)),
-            'avg_profit_margin': float(self.df['Margin'].mean()) if 'Margin' in self.df else 0,
-            'top_product': str(self.df.loc[self.df['Total'].idxmax(), 'Description']) if 'Total' in self.df and not self.df.empty else '',
-            'top_product_revenue': float(self.df['Total'].max()) if 'Total' in self.df and not self.df.empty else 0,
-            'negative_margin_products': int(len(self.df[self.df['Margin'] < 0])) if 'Margin' in self.df else 0,
-            'high_margin_products': int(len(self.df[self.df['Margin'] > 50])) if 'Margin' in self.df else 0
+            'avg_profit_margin': float(self.df['Margin'].mean()),
+            'top_product': str(self.df.loc[self.df['Total'].idxmax(), 'Description']),
+            'top_product_revenue': float(self.df['Total'].max()),
+            'negative_margin_products': int(len(self.df[self.df['Margin'] < 0])),
+            'high_margin_products': int(len(self.df[self.df['Margin'] > 50]))
         }
     
     def generate_warehouse_insights(self):
         """Generate warehouse-specific insights"""
-        # Always return all expected keys with safe defaults
         if self.warehouse_df is None or len(self.warehouse_df) == 0:
             self.warehouse_insights = {
                 'total_products': 0,
@@ -372,18 +162,19 @@ class SimpleSalesDashboard:
                 'critical_stock_products': 0
             }
             return
+        
         self.warehouse_insights = {
             'total_products': int(len(self.warehouse_df)),
-            'total_current_stock': int(self.warehouse_df['Current_Stock'].sum()) if 'Current_Stock' in self.warehouse_df else 0,
-            'products_needing_restock': int(len(self.warehouse_df[self.warehouse_df['Restock_Needed'] == True])) if 'Restock_Needed' in self.warehouse_df else 0,
-            'low_stock_products': int(len(self.warehouse_df[self.warehouse_df['Stock_Status'] == 'Low'])) if 'Stock_Status' in self.warehouse_df else 0,
-            'overstocked_products': int(len(self.warehouse_df[self.warehouse_df['Stock_Status'] == 'Overstocked'])) if 'Stock_Status' in self.warehouse_df else 0,
-            'avg_lead_time': float(self.warehouse_df['Lead_Time_Days'].mean()) if 'Lead_Time_Days' in self.warehouse_df else 0.0,
-            'total_safety_stock': int(self.warehouse_df['Safety_Stock'].sum()) if 'Safety_Stock' in self.warehouse_df else 0,
-            'avg_stock_turnover': float(self.warehouse_df['Stock_Turnover'].mean()) if 'Stock_Turnover' in self.warehouse_df else 0.0,
-            'warehouse_locations': int(self.warehouse_df['Warehouse_Location'].nunique()) if 'Warehouse_Location' in self.warehouse_df else 0,
-            'suppliers': int(self.warehouse_df['Supplier'].nunique()) if 'Supplier' in self.warehouse_df else 0,
-            'critical_stock_products': int(len(self.warehouse_df[self.warehouse_df['Days_Until_Stockout'] <= 7])) if 'Days_Until_Stockout' in self.warehouse_df else 0
+            'total_current_stock': int(self.warehouse_df['Current_Stock'].sum()),
+            'products_needing_restock': int(len(self.warehouse_df[self.warehouse_df['Restock_Needed'] == True])),
+            'low_stock_products': int(len(self.warehouse_df[self.warehouse_df['Stock_Status'] == 'Low'])),
+            'overstocked_products': int(len(self.warehouse_df[self.warehouse_df['Stock_Status'] == 'Overstocked'])),
+            'avg_lead_time': float(self.warehouse_df['Lead_Time_Days'].mean()),
+            'total_safety_stock': int(self.warehouse_df['Safety_Stock'].sum()),
+            'avg_stock_turnover': float(self.warehouse_df['Stock_Turnover'].mean()),
+            'warehouse_locations': int(self.warehouse_df['Warehouse_Location'].nunique()),
+            'suppliers': int(self.warehouse_df['Supplier'].nunique()),
+            'critical_stock_products': int(len(self.warehouse_df[self.warehouse_df['Days_Until_Stockout'] <= 7]))
         }
     
     def get_top_products_data(self):
@@ -491,6 +282,7 @@ class SimpleSalesDashboard:
             return location_dict
         return {}
     
+    # Chart creation methods (same as original)
     def create_margin_distribution_chart(self):
         """Create margin distribution histogram"""
         if self.df.empty:
@@ -919,9 +711,10 @@ def get_supplier_analysis_chart():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    # For Replit deployment
+    print("Starting Sales Analytics Dashboard with sample data...")
+    print("Access the dashboard at: http://127.0.0.1:8080")
     app.run(
         host='0.0.0.0',
         port=8080,
-        debug=False  # Set to False for production
+        debug=False
     ) 

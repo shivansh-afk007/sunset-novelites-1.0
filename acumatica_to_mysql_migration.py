@@ -5,19 +5,19 @@ import pandas as pd
 import sys
 import os
 
-# Azure SQL connection details
+# Azure SQL connection details (Acumatica)
 azure_server = 'synchub-io.database.windows.net'
 azure_database = 'warehouse_0006588'
 azure_username = 'synchub_reader'
 azure_password = 'ab914bb2-b28f-493d-89f7-d0bb371e1f6a'
 azure_driver = '{ODBC Driver 11 for SQL Server}'  # Updated to installed driver
-azure_schema = 'lightspeed_hubioconnection_12373_1'
+azure_schema = 'acumatica_crestwoodlive_12373_4'  # Acumatica schema
 
 # MySQL connection details (XAMPP installation)
 mysql_host = 'localhost'
 mysql_user = 'root'
 mysql_password = ''  # No password for XAMPP default installation
-mysql_database = 'synchub_data'  # Database we created
+mysql_database = 'acumatica_data'  # New database for Acumatica data
 
 # Data type mapping from Azure SQL to MySQL
 type_mapping = {
@@ -117,6 +117,28 @@ def map_data_type(sql_type, char_max_length, numeric_precision=None, numeric_sca
             return "BIGINT"
     
     return type_mapping.get(sql_type, "TEXT")
+
+def create_mysql_database():
+    """Create the MySQL database if it doesn't exist"""
+    try:
+        # Connect to MySQL without specifying a database
+        mysql_conn = mysql.connector.connect(
+            host=mysql_host,
+            user=mysql_user,
+            password=mysql_password
+        )
+        mysql_cursor = mysql_conn.cursor()
+        
+        # Create database if it doesn't exist
+        mysql_cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{mysql_database}`")
+        print(f"✓ MySQL database '{mysql_database}' created/verified")
+        
+        mysql_cursor.close()
+        mysql_conn.close()
+        return True
+    except Exception as e:
+        print(f"✗ Error creating MySQL database: {e}")
+        return False
 
 def test_connections():
     """Test both Azure SQL and MySQL connections"""
@@ -231,8 +253,13 @@ def migrate_all_tables():
             mysql_cursor.execute(f"DELETE FROM `{table}`")
             print(f"  ✓ Table cleared")
 
-            # Fetch data from Azure SQL
-            df = pd.read_sql(f"SELECT * FROM {azure_schema}.{table}", azure_conn)
+            # Fetch data from Azure SQL - handle reserved keywords
+            try:
+                df = pd.read_sql(f"SELECT * FROM [{azure_schema}].[{table}]", azure_conn)
+            except:
+                # Fallback to regular query if brackets don't work
+                df = pd.read_sql(f"SELECT * FROM {azure_schema}.{table}", azure_conn)
+            
             print(f"  ✓ {len(df)} rows fetched from Azure SQL")
 
             # Insert data into MySQL
@@ -290,8 +317,13 @@ def migrate_all_tables():
 
 def main():
     """Main function"""
-    print("Azure SQL to MySQL Migration Tool")
-    print("="*40)
+    print("Acumatica Azure SQL to MySQL Migration Tool")
+    print("="*50)
+    
+    # Create MySQL database first
+    if not create_mysql_database():
+        print("Failed to create MySQL database. Exiting.")
+        return
     
     # Test connections first
     if not test_connections():
