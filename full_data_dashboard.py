@@ -394,6 +394,20 @@ class FullDataSalesDashboard:
                 categories.append('Other')
         return categories
 
+def to_native(obj):
+    if isinstance(obj, dict):
+        return {k: to_native(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [to_native(v) for v in obj]
+    elif isinstance(obj, np.integer):
+        return int(obj)
+    elif isinstance(obj, np.floating):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    else:
+        return obj
+
 # Initialize dashboard
 print("🎯 Creating Full Data Dashboard instance...")
 dashboard = FullDataSalesDashboard()
@@ -519,37 +533,318 @@ def get_warehouse_locations():
 @app.route('/api/charts/<chart_type>')
 def get_chart(chart_type):
     """API endpoint for charts"""
-    print(f"📈 Serving chart API: {chart_type}")
-    if chart_type == 'warehouse-location':
+    print(f"📈 Serving chart API (FULL DATA): {chart_type}")
+    
+    try:
+        products = dashboard.get_products_from_cache(1000, 'all')
+        if not products:
+            return jsonify({'error': 'No data available'}), 404
+        
+        df = pd.DataFrame(products)
+        print(f"   DEBUG: DataFrame created with {len(df)} rows for {chart_type}")
+    except Exception as e:
+        print(f"   ERROR: Failed to create DataFrame for {chart_type}: {e}")
+        return jsonify({'error': str(e)}), 500
+    
+    if chart_type == 'revenue-by-category':
+        # Revenue by category chart
+        category_revenue = df.groupby('Category')['Total'].sum().sort_values(ascending=False)
+        
+        data = [{
+            'x': category_revenue.index.tolist(),
+            'y': [float(val) for val in category_revenue.values.tolist()],
+            'type': 'bar',
+            'marker': {'color': 'rgb(55, 83, 109)'}
+        }]
+        
+        layout = {
+            'title': 'Revenue by Category',
+            'xaxis': {'title': 'Category'},
+            'yaxis': {'title': 'Revenue ($)'},
+            'height': 400
+        }
+        
+        return jsonify(to_native({'data': data, 'layout': layout}))
+    
+    elif chart_type == 'margin-distribution':
+        # Margin distribution chart
+        data = [{
+            'x': [float(val) for val in df['Margin'].tolist()],
+            'type': 'histogram',
+            'nbinsx': 20,
+            'marker': {'color': 'rgb(158, 202, 225)'}
+        }]
+        
+        layout = {
+            'title': 'Profit Margin Distribution',
+            'xaxis': {'title': 'Margin (%)'},
+            'yaxis': {'title': 'Number of Products'},
+            'height': 400
+        }
+        
+        return jsonify(to_native({'data': data, 'layout': layout}))
+    
+    elif chart_type == 'top-products-chart':
+        # Top products chart
+        top_products = df.nlargest(10, 'Total')
+        
+        data = [{
+            'x': [float(val) for val in top_products['Total'].tolist()],
+            'y': top_products['Description'].tolist(),
+            'type': 'bar',
+            'orientation': 'h',
+            'marker': {'color': 'rgb(26, 118, 255)'}
+        }]
+        
+        layout = {
+            'title': 'Top 10 Products by Revenue',
+            'xaxis': {'title': 'Revenue ($)'},
+            'yaxis': {'title': 'Product'},
+            'height': 500
+        }
+        
+        return jsonify(to_native({'data': data, 'layout': layout}))
+    
+    elif chart_type == 'profit-margin-by-category':
+        # Profit margin by category chart
+        category_margin = df.groupby('Category')['Margin'].mean().sort_values(ascending=False)
+        
+        data = [{
+            'x': category_margin.index.tolist(),
+            'y': [float(val) for val in category_margin.values.tolist()],
+            'type': 'bar',
+            'marker': {'color': 'rgb(255, 127, 0)'}
+        }]
+        
+        layout = {
+            'title': 'Average Profit Margin by Category',
+            'xaxis': {'title': 'Category'},
+            'yaxis': {'title': 'Margin (%)'},
+            'height': 400
+        }
+        
+        return jsonify(to_native({'data': data, 'layout': layout}))
+    
+    elif chart_type == 'stock-vs-sales':
+        # Stock vs sales scatter plot
+        data = [{
+            'x': [int(val) for val in df['Sold'].tolist()],
+            'y': [int(val) for val in df['Stock'].tolist()],
+            'mode': 'markers',
+            'type': 'scatter',
+            'marker': {
+                'size': 8,
+                'color': [float(val) for val in df['Margin'].tolist()],
+                'colorscale': 'Viridis',
+                'showscale': True,
+                'colorbar': {'title': 'Margin (%)'}
+            },
+            'text': df['Description'].tolist(),
+            'hovertemplate': '<b>%{text}</b><br>Sold: %{x}<br>Stock: %{y}<extra></extra>'
+        }]
+        
+        layout = {
+            'title': 'Stock vs Sales Analysis',
+            'xaxis': {'title': 'Units Sold'},
+            'yaxis': {'title': 'Current Stock'},
+            'height': 500
+        }
+        
+        return jsonify(to_native({'data': data, 'layout': layout}))
+    
+    elif chart_type == 'revenue-vs-margin':
+        # Revenue vs margin scatter plot
+        data = [{
+            'x': [float(val) for val in df['Total'].tolist()],
+            'y': [float(val) for val in df['Margin'].tolist()],
+            'mode': 'markers',
+            'type': 'scatter',
+            'marker': {
+                'size': 8,
+                'color': [int(val) for val in df['Sold'].tolist()],
+                'colorscale': 'Plasma',
+                'showscale': True,
+                'colorbar': {'title': 'Units Sold'}
+            },
+            'text': df['Description'].tolist(),
+            'hovertemplate': '<b>%{text}</b><br>Revenue: $%{x:,.0f}<br>Margin: %{y:.1f}%<extra></extra>'
+        }]
+        
+        layout = {
+            'title': 'Revenue vs Profit Margin',
+            'xaxis': {'title': 'Revenue ($)'},
+            'yaxis': {'title': 'Profit Margin (%)'},
+            'height': 500
+        }
+        
+        return jsonify(to_native({'data': data, 'layout': layout}))
+    
+    elif chart_type == 'category-performance':
+        # Category performance chart
+        category_perf = df.groupby('Category').agg({
+            'Total': 'sum',
+            'Sold': 'sum',
+            'Stock': 'sum'
+        }).round(2)
+        
+        data = [
+            {
+                'x': category_perf.index.tolist(),
+                'y': [float(val) for val in category_perf['Total'].tolist()],
+                'type': 'bar',
+                'name': 'Revenue',
+                'marker': {'color': 'rgb(55, 83, 109)'}
+            },
+            {
+                'x': category_perf.index.tolist(),
+                'y': [int(val) for val in category_perf['Sold'].tolist()],
+                'type': 'bar',
+                'name': 'Units Sold',
+                'marker': {'color': 'rgb(26, 118, 255)'}
+            }
+        ]
+        
+        layout = {
+            'title': 'Category Performance Overview',
+            'xaxis': {'title': 'Category'},
+            'yaxis': {'title': 'Value'},
+            'barmode': 'group',
+            'height': 400
+        }
+        
+        return jsonify(to_native({'data': data, 'layout': layout}))
+    
+    # Warehouse charts
+    elif chart_type == 'warehouse-stock-status':
+        # Warehouse stock status chart
+        stock_status = {
+            'Well Stocked': int(len(df[df['Stock'] >= 50])),
+            'Moderate Stock': int(len(df[(df['Stock'] >= 10) & (df['Stock'] < 50)])),
+            'Low Stock': int(len(df[(df['Stock'] >= 1) & (df['Stock'] < 10)])),
+            'Out of Stock': int(len(df[df['Stock'] == 0]))
+        }
+        
+        data = [{
+            'labels': list(stock_status.keys()),
+            'values': list(stock_status.values()),
+            'type': 'pie',
+            'marker': {'color': ['#2E8B57', '#FFD700', '#FFA500', '#DC143C']}
+        }]
+        
+        layout = {
+            'title': 'Warehouse Stock Status',
+            'height': 400
+        }
+        
+        return jsonify(to_native({'data': data, 'layout': layout}))
+    
+    elif chart_type == 'warehouse-location':
+        print(f"   DEBUG: Processing warehouse-location chart")
         # Warehouse location chart
         total_stock = int(df['Stock'].sum())
+        print(f"   DEBUG: total_stock = {total_stock} (type: {type(total_stock)})")
         locations = {
             'Main Warehouse': int(total_stock),
             'Secondary Storage': int(total_stock * 0.3),
             'Distribution Center': int(total_stock * 0.2)
         }
-        # Ensure all values are native Python ints
-        x_vals = list(locations.keys())
-        y_vals = [int(val) for val in locations.values()]
+        print(f"   DEBUG: locations = {locations}")
         data = [{
-            'x': x_vals,
-            'y': y_vals,
+            'x': list(locations.keys()),
+            'y': [int(val) for val in locations.values()],
             'type': 'bar',
             'marker': {'color': 'rgb(75, 192, 192)'}
         }]
+        print(f"   DEBUG: data created successfully")
         layout = {
             'title': 'Stock Distribution by Location',
             'xaxis': {'title': 'Location'},
             'yaxis': {'title': 'Total Stock'},
             'height': 400
         }
-        # Convert everything to native Python types before jsonify
-        return app.response_class(
-            response=json.dumps({'data': data, 'layout': layout}),
-            status=200,
-            mimetype='application/json'
-        )
-    return jsonify({})
+        print(f"   DEBUG: layout created successfully")
+        
+        # Convert everything to native Python types
+        chart_data = {
+            'data': data,
+            'layout': layout
+        }
+        
+        # Apply to_native conversion to the entire structure
+        result = to_native(chart_data)
+        
+        # Additional safety: manually convert any remaining numpy types
+        def force_native_types(obj):
+            if isinstance(obj, dict):
+                return {k: force_native_types(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [force_native_types(v) for v in obj]
+            elif hasattr(obj, 'item'):  # numpy scalar
+                return obj.item()
+            elif isinstance(obj, (np.integer, np.floating)):
+                return obj.item()
+            else:
+                return obj
+        
+        result = force_native_types(result)
+        
+        try:
+            json_str = json.dumps(result)
+            print("DEBUG: JSON serialization succeeded for warehouse-location chart.")
+            return jsonify(result)
+        except Exception as e:
+            print("DEBUG: JSON serialization failed for warehouse-location chart.")
+            print("DEBUG: result =", result)
+            print("DEBUG: error =", e)
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': str(e)}), 500
+    
+    elif chart_type == 'restock-urgency':
+        # Restock urgency chart
+        urgency_data = {
+            'Critical (< 5 units)': int(len(df[df['Stock'] < 5])),
+            'Urgent (5-10 units)': int(len(df[(df['Stock'] >= 5) & (df['Stock'] < 10)])),
+            'Monitor (10-20 units)': int(len(df[(df['Stock'] >= 10) & (df['Stock'] < 20)])),
+            'Safe (> 20 units)': int(len(df[df['Stock'] >= 20]))
+        }
+        data = [{
+            'x': list(urgency_data.keys()),
+            'y': list(urgency_data.values()),
+            'type': 'bar',
+            'marker': {'color': ['#DC143C', '#FF6347', '#FFD700', '#32CD32']}
+        }]
+        layout = {
+            'title': 'Restock Urgency Analysis',
+            'xaxis': {'title': 'Stock Level'},
+            'yaxis': {'title': 'Number of Products'},
+            'height': 400
+        }
+        return jsonify(to_native({'data': data, 'layout': layout}))
+    
+    elif chart_type == 'supplier-analysis':
+        # Supplier analysis chart (simplified)
+        supplier_data = {
+            'Supplier A': int(len(df) // 4),
+            'Supplier B': int(len(df) // 3),
+            'Supplier C': int(len(df) // 6),
+            'Supplier D': int(len(df) // 8),
+            'Other Suppliers': int(len(df) - (len(df) // 4 + len(df) // 3 + len(df) // 6 + len(df) // 8))
+        }
+        data = [{
+            'labels': list(supplier_data.keys()),
+            'values': list(supplier_data.values()),
+            'type': 'pie',
+            'marker': {'color': ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']}
+        }]
+        layout = {
+            'title': 'Product Distribution by Supplier',
+            'height': 400
+        }
+        return jsonify(to_native({'data': data, 'layout': layout}))
+    
+    else:
+        return jsonify({'error': f'Chart type {chart_type} not found'}), 404
 
 @app.route('/api/status')
 def get_status():
