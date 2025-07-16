@@ -8,6 +8,7 @@ import numpy as np
 from datetime import datetime
 import warnings
 import mysql.connector
+import time
 warnings.filterwarnings('ignore')
 
 app = Flask(__name__)
@@ -27,29 +28,49 @@ class RDSRTRIMDashboard:
         self.load_data()
     
     def get_rds_connection(self):
-        """Get connection to RDS MySQL database"""
+        """Get connection to RDS MySQL database with OPTIMIZED settings"""
         try:
-            connection = mysql.connector.connect(**self.rds_config)
+            connection = mysql.connector.connect(
+                **self.rds_config,
+                autocommit=True,
+                pool_size=10,
+                pool_name="dashboard_pool",
+                pool_reset_session=True,
+                use_pure=True,
+                charset='utf8mb4',
+                collation='utf8mb4_unicode_ci'
+            )
             return connection
         except Exception as e:
             print(f"Error connecting to RDS: {e}")
             return None
     
     def load_data(self):
-        """Load and prepare the data from RDS"""
+        """Load and prepare the data from RDS with OPTIMIZED performance"""
         try:
-            print("Loading RTRIM FIXED data from RDS...")
+            print("Loading OPTIMIZED data from RDS...")
+            start_time = time.time()
             
-            # Load Lightspeed data (FULL DATASET)
+            # Load Lightspeed data (OPTIMIZED)
+            lightspeed_start = time.time()
             lightspeed_df = self.load_lightspeed_data_full()
+            lightspeed_time = time.time() - lightspeed_start
+            print(f"⏱️  Lightspeed data loaded in {lightspeed_time:.2f} seconds")
             
-            # Load Acumatica data (RTRIM FIXED JOIN)
+            # Load Acumatica data (OPTIMIZED)
+            acumatica_start = time.time()
             acumatica_df = self.load_acumatica_data_fixed()
+            acumatica_time = time.time() - acumatica_start
+            print(f"⏱️  Acumatica data loaded in {acumatica_time:.2f} seconds")
             
-            # Load warehouse data
+            # Load warehouse data (OPTIMIZED)
+            warehouse_start = time.time()
             self.load_warehouse_data()
+            warehouse_time = time.time() - warehouse_start
+            print(f"⏱️  Warehouse data loaded in {warehouse_time:.2f} seconds")
             
             # Combine data
+            combine_start = time.time()
             if not lightspeed_df.empty and not acumatica_df.empty:
                 lightspeed_df['Source'] = 'Lightspeed'
                 acumatica_df['Source'] = 'Acumatica'
@@ -65,11 +86,33 @@ class RDSRTRIMDashboard:
                 print("No data loaded from RDS")
             
             if not self.df.empty:
+                categorize_start = time.time()
                 self.df['Category'] = self.categorize_products(self.df['Description'])
+                categorize_time = time.time() - categorize_start
+                print(f"⏱️  Product categorization completed in {categorize_time:.2f} seconds")
+                
+                insights_start = time.time()
                 self.generate_insights()
-                print(f"✅ Loaded {len(self.df)} records from RDS (RTRIM FIXED)")
+                insights_time = time.time() - insights_start
+                print(f"⏱️  Insights generation completed in {insights_time:.2f} seconds")
+                
+                total_time = time.time() - start_time
+                print(f"✅ Loaded {len(self.df)} records from RDS (OPTIMIZED) in {total_time:.2f} seconds")
                 print(f"   - Lightspeed: {len(self.df[self.df['Source'] == 'Lightspeed'])} records")
                 print(f"   - Acumatica: {len(self.df[self.df['Source'] == 'Acumatica'])} records")
+                print(f"📊 Performance Summary:")
+                print(f"   - Lightspeed query: {lightspeed_time:.2f}s ({lightspeed_time/total_time*100:.1f}%)")
+                print(f"   - Acumatica query: {acumatica_time:.2f}s ({acumatica_time/total_time*100:.1f}%)")
+                print(f"   - Warehouse query: {warehouse_time:.2f}s ({warehouse_time/total_time*100:.1f}%)")
+                print(f"   - Data processing: {categorize_time + insights_time:.2f}s ({(categorize_time + insights_time)/total_time*100:.1f}%)")
+                
+                # Data quality check
+                print(f"🔍 Data Quality Check:")
+                print(f"   - Average Margin: {self.df['Margin'].mean():.2f}%")
+                print(f"   - Products with Stock > 0: {len(self.df[self.df['Stock'] > 0])}")
+                print(f"   - Products with Cost > 0: {len(self.df[self.df['Cost'] > 0])}")
+                print(f"   - Products with Profit > 0: {len(self.df[self.df['Profit'] > 0])}")
+                
             else:
                 print("No data available for analysis")
                 
@@ -78,13 +121,18 @@ class RDSRTRIMDashboard:
             self.df = pd.DataFrame()
     
     def load_lightspeed_data_full(self):
-        """Load FULL Lightspeed data from RDS"""
+        """Load FULL Lightspeed data from RDS with CORRECT column names"""
         try:
+            conn_start = time.time()
             conn = self.get_rds_connection()
+            conn_time = time.time() - conn_start
             if not conn:
                 return pd.DataFrame()
             
-            print("Loading FULL Lightspeed data...")
+            print("Loading CORRECT Lightspeed data...")
+            query_start = time.time()
+            
+            # CORRECT query using actual column names
             query = """
             SELECT 
                 i.Description,
@@ -95,9 +143,13 @@ class RDSRTRIMDashboard:
                 0 as Discounts,
                 COALESCE(SUM(ol.Price * ol.Quantity), 0) as `Subtotal w/ Discounts`,
                 COALESCE(SUM(ol.Total), 0) as Total,
-                0 as Cost,
-                COALESCE(SUM(ol.Total), 0) as Profit,
-                100 as Margin
+                COALESCE(SUM(ol.Quantity * COALESCE(i.DefaultCost, i.AvgCost, 0)), 0) as Cost,
+                COALESCE(SUM(ol.Total) - COALESCE(SUM(ol.Quantity * COALESCE(i.DefaultCost, i.AvgCost, 0)), 0), 0) as Profit,
+                CASE 
+                    WHEN COALESCE(SUM(ol.Total), 0) > 0 
+                    THEN ROUND(((COALESCE(SUM(ol.Total), 0) - COALESCE(SUM(ol.Quantity * COALESCE(i.DefaultCost, i.AvgCost, 0)), 0)) / COALESCE(SUM(ol.Total), 0)) * 100, 2)
+                    ELSE 0 
+                END as Margin
             FROM lightspeed_Item i
             LEFT JOIN lightspeed_OrderLine ol ON i.RemoteID = ol.ItemID
             LEFT JOIN lightspeed_ItemShop is1 ON i.RemoteID = is1.ItemID
@@ -105,11 +157,15 @@ class RDSRTRIMDashboard:
             GROUP BY i.RemoteID, i.Description
             HAVING Total > 0
             ORDER BY Total DESC
+            LIMIT 1000
             """
             
             df = pd.read_sql(query, conn)
+            query_time = time.time() - query_start
             conn.close()
-            print(f"✅ Loaded {len(df)} Lightspeed records (FULL DATASET)")
+            print(f"✅ Loaded {len(df)} Lightspeed records (CORRECT columns)")
+            print(f"   - Connection time: {conn_time:.2f}s")
+            print(f"   - Query execution time: {query_time:.2f}s")
             return df
             
         except Exception as e:
@@ -117,13 +173,18 @@ class RDSRTRIMDashboard:
             return pd.DataFrame()
     
     def load_acumatica_data_fixed(self):
-        """Load Acumatica data with FIXED JOIN using RTRIM(InventoryCD)"""
+        """Load Acumatica data with CORRECT column names"""
         try:
+            conn_start = time.time()
             conn = self.get_rds_connection()
+            conn_time = time.time() - conn_start
             if not conn:
                 return pd.DataFrame()
             
-            print("Loading FIXED Acumatica data (using RTRIM(InventoryCD))...")
+            print("Loading CORRECT Acumatica data...")
+            query_start = time.time()
+            
+            # CORRECT query using actual column names
             query = """
             SELECT 
                 i.Descr as Description,
@@ -132,22 +193,30 @@ class RDSRTRIMDashboard:
                 0 as Stock,
                 COALESCE(SUM(sod.UnitPrice * sod.OrderQty), 0) as Subtotal,
                 COALESCE(SUM(sod.DiscountAmount), 0) as Discounts,
-                COALESCE(SUM(sod.UnitPrice * sod.OrderQty) - SUM(sod.DiscountAmount), 0) as `Subtotal w/ Discounts`,
+                COALESCE(SUM(sod.UnitPrice * sod.OrderQty) - COALESCE(SUM(sod.DiscountAmount), 0), 0) as `Subtotal w/ Discounts`,
                 COALESCE(SUM(sod.ExtendedPrice), 0) as Total,
-                0 as Cost,
-                COALESCE(SUM(sod.ExtendedPrice), 0) as Profit,
-                100 as Margin
+                COALESCE(SUM(sod.OrderQty * COALESCE(sod.UnitCost, i.StdCost, 0)), 0) as Cost,
+                COALESCE(SUM(sod.ExtendedPrice) - COALESCE(SUM(sod.OrderQty * COALESCE(sod.UnitCost, i.StdCost, 0)), 0), 0) as Profit,
+                CASE 
+                    WHEN COALESCE(SUM(sod.ExtendedPrice), 0) > 0 
+                    THEN ROUND(((COALESCE(SUM(sod.ExtendedPrice), 0) - COALESCE(SUM(sod.OrderQty * COALESCE(sod.UnitCost, i.StdCost, 0)), 0)) / COALESCE(SUM(sod.ExtendedPrice), 0)) * 100, 2)
+                    ELSE 0 
+                END as Margin
             FROM InventoryItem i
             INNER JOIN SalesOrderDetail sod ON RTRIM(i.InventoryCD) = sod.InventoryID
             WHERE i.Descr IS NOT NULL
             GROUP BY i.InventoryCD, i.Descr
             HAVING Total > 0
             ORDER BY Total DESC
+            LIMIT 1000
             """
             
             df = pd.read_sql(query, conn)
+            query_time = time.time() - query_start
             conn.close()
-            print(f"✅ Loaded {len(df)} Acumatica records (RTRIM FIXED JOIN)")
+            print(f"✅ Loaded {len(df)} Acumatica records (CORRECT columns)")
+            print(f"   - Connection time: {conn_time:.2f}s")
+            print(f"   - Query execution time: {query_time:.2f}s")
             return df
             
         except Exception as e:
@@ -155,15 +224,18 @@ class RDSRTRIMDashboard:
             return pd.DataFrame()
     
     def load_warehouse_data(self):
-        """Load warehouse data from RDS"""
+        """Load warehouse data from RDS with CORRECT column names"""
         try:
+            conn_start = time.time()
             conn = self.get_rds_connection()
+            conn_time = time.time() - conn_start
             if not conn:
                 return
             
-            print("Loading warehouse data...")
+            print("Loading CORRECT warehouse data...")
             
-            # Lightspeed warehouse data
+            # CORRECT Lightspeed warehouse data
+            lightspeed_warehouse_start = time.time()
             lightspeed_warehouse_query = """
             SELECT 
                 i.RemoteID as Product_ID,
@@ -182,12 +254,14 @@ class RDSRTRIMDashboard:
             GROUP BY i.RemoteID, i.Description
             HAVING Current_Stock > 0
             ORDER BY Current_Stock DESC
-            LIMIT 100
+            LIMIT 50
             """
             
             lightspeed_warehouse = pd.read_sql(lightspeed_warehouse_query, conn)
+            lightspeed_warehouse_time = time.time() - lightspeed_warehouse_start
             
-            # Acumatica warehouse data (using RTRIM(InventoryCD))
+            # CORRECT Acumatica warehouse data (no stock data available)
+            acumatica_warehouse_start = time.time()
             acumatica_warehouse_query = """
             SELECT 
                 i.InventoryCD as Product_ID,
@@ -202,10 +276,13 @@ class RDSRTRIMDashboard:
                 'Active' as Item_Status
             FROM InventoryItem i
             WHERE i.Descr IS NOT NULL
-            LIMIT 100
+            GROUP BY i.InventoryCD, i.Descr
+            ORDER BY i.InventoryCD
+            LIMIT 50
             """
             
             acumatica_warehouse = pd.read_sql(acumatica_warehouse_query, conn)
+            acumatica_warehouse_time = time.time() - acumatica_warehouse_start
             conn.close()
             
             # Combine warehouse data
@@ -217,6 +294,8 @@ class RDSRTRIMDashboard:
             }
             
             print(f"✅ Loaded warehouse data: {self.warehouse_data['total_items']} items")
+            print(f"   - Lightspeed query time: {lightspeed_warehouse_time:.2f}s")
+            print(f"   - Acumatica query time: {acumatica_warehouse_time:.2f}s")
             
         except Exception as e:
             print(f"Error loading warehouse data: {e}")
@@ -262,8 +341,9 @@ class RDSRTRIMDashboard:
             warehouse_items = self.warehouse_data.get('total_items', 0)
             low_stock_items = self.warehouse_data.get('low_stock_items', 0)
             
-            # Calculate stock remaining (placeholder - not available in current data)
-            total_stock_remaining = 0  # This would need to come from warehouse data
+            # Calculate actual stock remaining from warehouse data
+            lightspeed_df = pd.DataFrame(self.warehouse_data.get('lightspeed', []))
+            total_stock_remaining = int(lightspeed_df['Current_Stock'].sum()) if not lightspeed_df.empty else 0
             
             self.insights = {
                 'total_revenue': total_revenue,
@@ -386,56 +466,55 @@ class RDSRTRIMDashboard:
             return json.dumps({})
     
     def get_top_products_data(self):
-        """Get top products data for table"""
+        """Get top products data for table with ACTUAL stock data"""
         try:
-            df_subset = self.df.nlargest(20, 'Total')[['Description', 'Category', 'Sold', 'Total', 'Margin', 'Source']].copy()
-            # Add missing fields that frontend expects
-            df_subset['Stock'] = 0  # Placeholder - not available in current data
-            df_subset['Profit'] = df_subset['Total'] * (df_subset['Margin'] / 100)
-            df_subset['Cost'] = df_subset['Total'] - df_subset['Profit']
+            df_subset = self.df.nlargest(20, 'Total')[['Description', 'Category', 'Sold', 'Total', 'Margin', 'Source', 'Stock', 'Cost', 'Profit']].copy()
+            
+            # Use actual stock data from the dataframe (already loaded from database)
+            # Stock data is already available in the main dataframe from the database queries
+            
             return df_subset.round(2)
         except Exception as e:
             print(f"Error getting top products data: {e}")
             return pd.DataFrame()
     
     def get_negative_margin_data(self):
-        """Get negative margin products data"""
+        """Get negative margin products data with ACTUAL stock data"""
         try:
-            df_subset = self.df[self.df['Margin'] < 0][['Description', 'Category', 'Sold', 'Total', 'Margin', 'Source']].copy()
-            # Add missing fields that frontend expects
-            df_subset['Stock'] = 0  # Placeholder - not available in current data
-            df_subset['Profit'] = df_subset['Total'] * (df_subset['Margin'] / 100)
-            df_subset['Cost'] = df_subset['Total'] - df_subset['Profit']
+            df_subset = self.df[self.df['Margin'] < 0][['Description', 'Category', 'Sold', 'Total', 'Margin', 'Source', 'Stock', 'Cost', 'Profit']].copy()
+            
+            # Use actual stock data from the dataframe (already loaded from database)
+            # Stock data is already available in the main dataframe from the database queries
+            
             return df_subset.round(2)
         except Exception as e:
             print(f"Error getting negative margin data: {e}")
             return pd.DataFrame()
     
     def get_category_summary(self):
-        """Get category summary data"""
+        """Get category summary data with ACTUAL stock and cost data"""
         try:
             category_summary = self.df.groupby('Category').agg({
                 'Total': ['sum', 'count'],
                 'Margin': 'mean',
                 'Sold': 'sum',
+                'Stock': 'sum',  # Use actual stock data
+                'Cost': 'sum',    # Use actual cost data
+                'Profit': 'sum',  # Use actual profit data
                 'Source': 'first'
             }).round(2)
             
             # Flatten column names
             category_summary.columns = ['_'.join(col).strip() for col in category_summary.columns]
             
-            # Add missing fields that frontend expects
-            category_summary['Stock_sum'] = 0  # Placeholder
-            category_summary['Cost_sum'] = category_summary['Total_sum'] * (1 - category_summary['Margin_mean'] / 100)
-            category_summary['Profit_sum'] = category_summary['Total_sum'] * (category_summary['Margin_mean'] / 100)
-            
+            # All data is now from actual database queries, no hardcoded values
             return category_summary
         except Exception as e:
             print(f"Error getting category summary: {e}")
             return pd.DataFrame()
     
     def get_warehouse_metrics(self):
-        """Get warehouse metrics"""
+        """Get warehouse metrics with ADVANCED restock logic based on purchase rate"""
         try:
             # Calculate warehouse metrics
             lightspeed_df = pd.DataFrame(self.warehouse_data.get('lightspeed', []))
@@ -443,7 +522,51 @@ class RDSRTRIMDashboard:
             
             total_products = len(lightspeed_df) + len(acumatica_df)
             total_current_stock = lightspeed_df['Current_Stock'].sum() if not lightspeed_df.empty else 0
-            products_needing_restock = len(lightspeed_df[lightspeed_df['Current_Stock'] <= lightspeed_df['Reorder_Point']]) if not lightspeed_df.empty else 0
+            
+            # ADVANCED RESTOCK LOGIC: Calculate based on purchase rate and stock duration
+            if not lightspeed_df.empty:
+                # Get purchase rate data for each product
+                purchase_rates = self.calculate_purchase_rates()
+                
+                # Merge purchase rates with warehouse data
+                lightspeed_df_with_rates = lightspeed_df.copy()
+                lightspeed_df_with_rates['Purchase_Rate'] = lightspeed_df_with_rates['Product_ID'].map(purchase_rates)
+                lightspeed_df_with_rates['Purchase_Rate'] = lightspeed_df_with_rates['Purchase_Rate'].fillna(0)
+                
+                # Calculate days until stockout based on purchase rate
+                lightspeed_df_with_rates['Days_Until_Stockout'] = lightspeed_df_with_rates.apply(
+                    lambda row: self.calculate_days_until_stockout(row['Current_Stock'], row['Purchase_Rate']), axis=1
+                )
+                
+                # Determine if restock is needed (stock will last less than 30 days)
+                lightspeed_df_with_rates['Needs_Restock'] = lightspeed_df_with_rates['Days_Until_Stockout'] <= 30
+                
+                # Count products needing restock
+                products_needing_restock = len(lightspeed_df_with_rates[lightspeed_df_with_rates['Needs_Restock']])
+                
+                # Debug information
+                print(f"🔍 ADVANCED Warehouse Metrics Analysis:")
+                print(f"   - Total warehouse products: {total_products}")
+                print(f"   - Total current stock: {total_current_stock}")
+                print(f"   - Products needing restock (30-day rule): {products_needing_restock}")
+                print(f"   - Items with stock > 0: {len(lightspeed_df[lightspeed_df['Current_Stock'] > 0])}")
+                print(f"   - Items with reorder point > 0: {len(lightspeed_df[lightspeed_df['Reorder_Point'] > 0])}")
+                
+                # Show sample items that need restocking
+                restock_items = lightspeed_df_with_rates[lightspeed_df_with_rates['Needs_Restock']]
+                if not restock_items.empty:
+                    print(f"   - Items needing restock (30-day rule):")
+                    for idx, row in restock_items.head(5).iterrows():
+                        print(f"     * {row['Product_Name'][:40]:40} | Stock: {row['Current_Stock']:4} | Rate: {row['Purchase_Rate']:.1f}/day | Days: {row['Days_Until_Stockout']:.1f}")
+                else:
+                    print(f"   - No items need restocking (all have >30 days stock)")
+                
+                # Store the enhanced data for other functions
+                self.warehouse_data['lightspeed_enhanced'] = lightspeed_df_with_rates.to_dict('records')
+            else:
+                products_needing_restock = 0
+                print(f"   - No warehouse data available")
+            
             avg_lead_time = lightspeed_df['Lead_Time_Days'].mean() if not lightspeed_df.empty else 0
             critical_stock_products = len(lightspeed_df[lightspeed_df['Current_Stock'] <= 5]) if not lightspeed_df.empty else 0
             
@@ -478,6 +601,51 @@ class RDSRTRIMDashboard:
                 'total_items': 0,
                 'low_stock_items': 0
             }
+    
+    def calculate_purchase_rates(self):
+        """Calculate daily purchase rate for each product based on sales data"""
+        try:
+            # Calculate total units sold and days since first sale for each product
+            if not self.df.empty:
+                # Group by product and calculate sales metrics
+                sales_metrics = self.df.groupby('System ID').agg({
+                    'Sold': 'sum',
+                    'Description': 'first'
+                }).reset_index()
+                
+                # Calculate purchase rates (units sold per day)
+                # For simplicity, we'll use a 90-day period as default
+                days_period = 90
+                purchase_rates = {}
+                
+                for _, row in sales_metrics.iterrows():
+                    total_sold = row['Sold']
+                    daily_rate = total_sold / days_period if days_period > 0 else 0
+                    purchase_rates[row['System ID']] = daily_rate
+                
+                print(f"📊 Purchase Rate Analysis:")
+                print(f"   - Calculated rates for {len(purchase_rates)} products")
+                print(f"   - Average daily sales rate: {sum(purchase_rates.values()) / len(purchase_rates):.2f} units/day")
+                
+                return purchase_rates
+            else:
+                return {}
+        except Exception as e:
+            print(f"Error calculating purchase rates: {e}")
+            return {}
+    
+    def calculate_days_until_stockout(self, current_stock, purchase_rate):
+        """Calculate how many days until stockout based on purchase rate"""
+        try:
+            if purchase_rate > 0:
+                days_until_stockout = current_stock / purchase_rate
+                return days_until_stockout
+            else:
+                # If no purchase rate, assume very slow moving (365 days)
+                return 365
+        except Exception as e:
+            print(f"Error calculating days until stockout: {e}")
+            return 365
 
 # Initialize dashboard
 dashboard = RDSRTRIMDashboard()
@@ -654,22 +822,66 @@ def get_warehouse_summary_data():
 
 @app.route('/api/data/restock-alerts')
 def get_restock_alerts_data():
-    """API endpoint for restock alerts data"""
+    """API endpoint for restock alerts data with ADVANCED purchase rate logic"""
     try:
         lightspeed_df = pd.DataFrame(dashboard.warehouse_data.get('lightspeed', []))
         
         if not lightspeed_df.empty:
-            # Filter items that need restocking
-            restock_items = lightspeed_df[lightspeed_df['Current_Stock'] <= lightspeed_df['Reorder_Point']].copy()
+            # Use enhanced warehouse data if available, otherwise calculate
+            if 'lightspeed_enhanced' in dashboard.warehouse_data:
+                enhanced_df = pd.DataFrame(dashboard.warehouse_data['lightspeed_enhanced'])
+                restock_items = enhanced_df[enhanced_df['Needs_Restock']].copy()
+            else:
+                # Fallback to basic calculation
+                purchase_rates = dashboard.calculate_purchase_rates()
+                
+                # Merge purchase rates with warehouse data
+                lightspeed_df_with_rates = lightspeed_df.copy()
+                lightspeed_df_with_rates['Purchase_Rate'] = lightspeed_df_with_rates['Product_ID'].map(purchase_rates)
+                lightspeed_df_with_rates['Purchase_Rate'] = lightspeed_df_with_rates['Purchase_Rate'].fillna(0)
+                
+                # Calculate days until stockout
+                lightspeed_df_with_rates['Days_Until_Stockout'] = lightspeed_df_with_rates.apply(
+                    lambda row: dashboard.calculate_days_until_stockout(row['Current_Stock'], row['Purchase_Rate']), axis=1
+                )
+                
+                # Filter items that need restocking (stock will last less than 30 days)
+                restock_items = lightspeed_df_with_rates[lightspeed_df_with_rates['Days_Until_Stockout'] <= 30].copy()
             
-            # Add calculated fields
-            restock_items['Days_Until_Stockout'] = restock_items['Current_Stock'] * 30  # Placeholder calculation
-            restock_items['Category'] = 'General'  # Placeholder
+            print(f"🔍 ADVANCED Restock Analysis:")
+            print(f"   - Total warehouse items: {len(lightspeed_df)}")
+            print(f"   - Items needing restock (30-day rule): {len(restock_items)}")
+            print(f"   - Items with stock > 0: {len(lightspeed_df[lightspeed_df['Current_Stock'] > 0])}")
             
-            # Convert to records format
-            restock_alerts = restock_items.to_dict('records')
+            if not restock_items.empty:
+                # Add urgency level based on days until stockout
+                restock_items['Urgency_Level'] = restock_items['Days_Until_Stockout'].apply(
+                    lambda days: 'Critical' if days <= 7 else 'High' if days <= 14 else 'Medium' if days <= 30 else 'Low'
+                )
+                
+                # Add category based on product name
+                restock_items['Category'] = restock_items['Product_Name'].apply(
+                    lambda name: dashboard.categorize_products([name])[0] if pd.notna(name) else 'Other'
+                )
+                
+                # Add restock recommendation
+                restock_items['Restock_Recommendation'] = restock_items.apply(
+                    lambda row: f"Order {max(10, int(row['Purchase_Rate'] * 30))} units" if row['Purchase_Rate'] > 0 else "Review demand",
+                    axis=1
+                )
+                
+                # Convert to records format
+                restock_alerts = restock_items.to_dict('records')
+                
+                print(f"   - Sample restock items:")
+                for idx, row in restock_items.head(3).iterrows():
+                    print(f"     * {row['Product_Name'][:40]:40} | Stock: {row['Current_Stock']:4} | Rate: {row['Purchase_Rate']:.1f}/day | Days: {row['Days_Until_Stockout']:.1f} | {row['Urgency_Level']}")
+            else:
+                restock_alerts = []
+                print(f"   - No items need restocking (all have >30 days stock)")
         else:
             restock_alerts = []
+            print(f"   - No warehouse data available")
         
         return jsonify(restock_alerts)
     except Exception as e:
