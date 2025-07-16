@@ -66,16 +66,16 @@ class FlaskSalesDashboard:
     def generate_insights(self):
         """Generate key insights from the data"""
         self.insights = {
-            'total_revenue': self.df['Total'].sum(),
-            'total_units_sold': self.df['Sold'].sum(),
+            'total_revenue': float(self.df['Total'].sum()),
+            'total_units_sold': int(self.df['Sold'].sum()),
             'total_products': len(self.df),
-            'avg_profit_margin': self.df['Margin'].mean(),
-            'top_product': self.df.loc[self.df['Total'].idxmax(), 'Description'],
-            'top_product_revenue': self.df['Total'].max(),
+            'avg_profit_margin': float(self.df['Margin'].mean()),
+            'top_product': str(self.df.loc[self.df['Total'].idxmax(), 'Description']),
+            'top_product_revenue': float(self.df['Total'].max()),
             'negative_margin_products': len(self.df[self.df['Margin'] < 0]),
             'high_margin_products': len(self.df[self.df['Margin'] > 50]),
-            'top_category': self.df.groupby('Category')['Total'].sum().idxmax(),
-            'top_category_revenue': self.df.groupby('Category')['Total'].sum().max()
+            'top_category': str(self.df.groupby('Category')['Total'].sum().idxmax()),
+            'top_category_revenue': float(self.df.groupby('Category')['Total'].sum().max())
         }
     
     def create_revenue_chart(self):
@@ -209,7 +209,7 @@ dashboard = FlaskSalesDashboard()
 @app.route('/')
 def index():
     """Main dashboard page"""
-    return render_template('dashboard.html')
+    return render_template('dashboard_pro.html')
 
 @app.route('/api/metrics')
 def get_metrics():
@@ -262,4 +262,4 @@ def get_category_summary_data():
     return jsonify(dashboard.get_category_summary().to_dict('index'))
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000) 
+    app.run(debug=True, host='0.0.0.0', port=5001) 
