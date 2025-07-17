@@ -129,10 +129,10 @@ class RDSRTRIMDashboard:
             if not conn:
                 return pd.DataFrame()
             
-            print("Loading CORRECT Lightspeed data...")
+            print("Loading FULL Lightspeed data (no limits)...")
             query_start = time.time()
             
-            # CORRECT query using actual column names
+            # FULL query using actual column names - NO LIMITS
             query = """
             SELECT 
                 i.Description,
@@ -157,13 +157,12 @@ class RDSRTRIMDashboard:
             GROUP BY i.RemoteID, i.Description
             HAVING Total > 0
             ORDER BY Total DESC
-            LIMIT 1000
             """
             
             df = pd.read_sql(query, conn)
             query_time = time.time() - query_start
             conn.close()
-            print(f"✅ Loaded {len(df)} Lightspeed records (CORRECT columns)")
+            print(f"✅ Loaded {len(df)} Lightspeed records (FULL dataset)")
             print(f"   - Connection time: {conn_time:.2f}s")
             print(f"   - Query execution time: {query_time:.2f}s")
             return df
@@ -173,7 +172,7 @@ class RDSRTRIMDashboard:
             return pd.DataFrame()
     
     def load_acumatica_data_fixed(self):
-        """Load Acumatica data with CORRECT column names"""
+        """Load FULL Acumatica data with CORRECT column names"""
         try:
             conn_start = time.time()
             conn = self.get_rds_connection()
@@ -181,10 +180,10 @@ class RDSRTRIMDashboard:
             if not conn:
                 return pd.DataFrame()
             
-            print("Loading CORRECT Acumatica data...")
+            print("Loading FULL Acumatica data (no limits)...")
             query_start = time.time()
             
-            # CORRECT query using actual column names
+            # FULL query using actual column names - NO LIMITS
             query = """
             SELECT 
                 i.Descr as Description,
@@ -208,13 +207,12 @@ class RDSRTRIMDashboard:
             GROUP BY i.InventoryCD, i.Descr
             HAVING Total > 0
             ORDER BY Total DESC
-            LIMIT 1000
             """
             
             df = pd.read_sql(query, conn)
             query_time = time.time() - query_start
             conn.close()
-            print(f"✅ Loaded {len(df)} Acumatica records (CORRECT columns)")
+            print(f"✅ Loaded {len(df)} Acumatica records (FULL dataset)")
             print(f"   - Connection time: {conn_time:.2f}s")
             print(f"   - Query execution time: {query_time:.2f}s")
             return df
@@ -224,7 +222,7 @@ class RDSRTRIMDashboard:
             return pd.DataFrame()
     
     def load_warehouse_data(self):
-        """Load warehouse data from RDS with CORRECT column names"""
+        """Load FULL warehouse data from RDS with CORRECT column names"""
         try:
             conn_start = time.time()
             conn = self.get_rds_connection()
@@ -232,9 +230,9 @@ class RDSRTRIMDashboard:
             if not conn:
                 return
             
-            print("Loading CORRECT warehouse data...")
+            print("Loading FULL warehouse data (no limits)...")
             
-            # CORRECT Lightspeed warehouse data
+            # FULL Lightspeed warehouse data - NO LIMITS
             lightspeed_warehouse_start = time.time()
             lightspeed_warehouse_query = """
             SELECT 
@@ -254,13 +252,12 @@ class RDSRTRIMDashboard:
             GROUP BY i.RemoteID, i.Description
             HAVING Current_Stock > 0
             ORDER BY Current_Stock DESC
-            LIMIT 50
             """
             
             lightspeed_warehouse = pd.read_sql(lightspeed_warehouse_query, conn)
             lightspeed_warehouse_time = time.time() - lightspeed_warehouse_start
             
-            # CORRECT Acumatica warehouse data (no stock data available)
+            # FULL Acumatica warehouse data - NO LIMITS
             acumatica_warehouse_start = time.time()
             acumatica_warehouse_query = """
             SELECT 
@@ -278,7 +275,6 @@ class RDSRTRIMDashboard:
             WHERE i.Descr IS NOT NULL
             GROUP BY i.InventoryCD, i.Descr
             ORDER BY i.InventoryCD
-            LIMIT 50
             """
             
             acumatica_warehouse = pd.read_sql(acumatica_warehouse_query, conn)
@@ -293,7 +289,7 @@ class RDSRTRIMDashboard:
                 'low_stock_items': len(lightspeed_warehouse[lightspeed_warehouse['Current_Stock'] <= lightspeed_warehouse['Reorder_Point']])
             }
             
-            print(f"✅ Loaded warehouse data: {self.warehouse_data['total_items']} items")
+            print(f"✅ Loaded FULL warehouse data: {self.warehouse_data['total_items']} items")
             print(f"   - Lightspeed query time: {lightspeed_warehouse_time:.2f}s")
             print(f"   - Acumatica query time: {acumatica_warehouse_time:.2f}s")
             
@@ -889,4 +885,4 @@ def get_restock_alerts_data():
         return jsonify([])
 
 if __name__ == '__main__':
-    app.run(debug=False, host='0.0.0.0', port=5004) 
+    app.run(debug=False, host='0.0.0.0', port=5000) 
